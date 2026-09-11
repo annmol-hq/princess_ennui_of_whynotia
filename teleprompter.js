@@ -38,6 +38,18 @@
      even started. */
   var START_Y_RATIO = 0.5;
 
+  /* When a glitch ends, the line that was sitting in the reading zone is
+     shoved up to this fraction of viewport height - near the top, on its
+     way out. The reader comes back from a blackout to find the line they
+     were on already leaving, never getting a settled moment with it.
+     The next line lands in the dim zone, so there is no comfortable
+     position anywhere on screen. */
+  var POST_GLITCH_LAND_RATIO = 0.18;
+
+  /* Ceiling on that shove, so it can never fling the script forward the
+     way an unbounded speed burst once did. */
+  var MAX_POST_GLITCH_SKIP_RATIO = 0.4;
+
   /* ---------- canvas grain ---------- */
 
   /* A handful of small noise tiles, rendered once at startup and then
@@ -568,6 +580,34 @@
       node.textContent = words.join('');
     }
 
+    /* Called the instant a glitch ends. Finds whichever line is sitting
+       closest to the reading zone and pushes it up near the top of the
+       screen, so it is already on its way out by the time the reader can
+       see again. Only ever moves the script forward. */
+    function skipPastReadingLine() {
+      var bestIdx = -1;
+      var bestDist = Infinity;
+
+      for (var i = 0; i < nodes.length; i++) {
+        var h = nodes[i].offsetHeight || FALLBACK_LINE_HEIGHT;
+        var centre = startY + tops[i] - offset + h / 2;
+        var dist = Math.abs(centre - zoneCentre);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      if (bestIdx === -1) { return; }
+
+      var bh = nodes[bestIdx].offsetHeight || FALLBACK_LINE_HEIGHT;
+      var currentCentre = startY + tops[bestIdx] - offset + bh / 2;
+      var target = viewH * POST_GLITCH_LAND_RATIO;
+      var shove = currentCentre - target;
+
+      if (shove <= 0) { return; } /* already past it, leave it alone */
+      offset += Math.min(shove, viewH * MAX_POST_GLITCH_SKIP_RATIO);
+    }
+
     function undoWordSwap() {
       if (swappedNode && swappedOriginal !== null) {
         swappedNode.textContent = swappedOriginal;
@@ -594,6 +634,7 @@
       },
       onEnd: function () {
         burstTravel = 0; /* each glitch gets its own travel budget */
+        skipPastReadingLine();
         undoWordSwap();
         if (linesEl) { linesEl.classList.remove('mirrored'); }
         if (stage) { stage.classList.remove('glitching'); }
@@ -637,14 +678,30 @@
       }
     }
 
+    function onScreen(y, h) {
+      return !(y + h < -40 || y > viewH + 40);
+    }
+
     function render() {
       for (var i = 0; i < nodes.length; i++) {
         var el = nodes[i];
         var h = el.offsetHeight || FALLBACK_LINE_HEIGHT;
         var y = startY + tops[i] - offset;
 
-        /* drop lines that have scrolled off the top */
-        if (y + h < -40 || y > viewH + 40) {
+        /* Once the scroll has run backwards past the start, the script
+           becomes a loop: the tail rolls down into view from above
+           instead of the screen emptying out, so a reverse dumps you
+           into ...9, 10, 1, 2... and you have to find your place again.
+
+           Gated on a negative offset. Wrapping while still moving
+           forward would put the tail above line 1 from the very first
+           frame and the run would never reach its end. */
+        if (offset < 0 && totalHeight > 0) {
+          while (y > viewH + 40) { y -= totalHeight; }
+          while (y + h < -40) { y += totalHeight; }
+        }
+
+        if (!onScreen(y, h)) {
           el.style.visibility = 'hidden';
           continue;
         }
@@ -677,7 +734,10 @@
       }
 
       offset += delta;
-      if (offset < 0) { offset = 0; }
+      /* Reverse may now run past the start - that is what lets the tail
+         wrap down from the top. Bounded to one script length so a run of
+         reverses cannot strand the reader arbitrarily far behind. */
+      if (offset < -totalHeight) { offset = -totalHeight; }
 
       /* Split the run into time the reader could actually use and time
          the tool took away from them. Feeds the report card. */
@@ -803,7 +863,7 @@
       finish: function () { return finish(); },
       /* jump the scroll to a given pixel offset and repaint once */
       seek: function (px) {
-        offset = Math.max(0, px);
+        offset = Math.max(-totalHeight, px);
         render();
         return offset;
       },
@@ -827,6 +887,9 @@
     DURATION_SCALE: DURATION_SCALE,
     expectedReadableShare: expectedReadableShare,
     MAX_BURST_TRAVEL_RATIO: MAX_BURST_TRAVEL_RATIO,
+    START_Y_RATIO: START_Y_RATIO,
+    POST_GLITCH_LAND_RATIO: POST_GLITCH_LAND_RATIO,
+    MAX_POST_GLITCH_SKIP_RATIO: MAX_POST_GLITCH_SKIP_RATIO,
     NOISE_TILE_SIZE: NOISE_TILE_SIZE,
     NOISE_TILE_COUNT: NOISE_TILE_COUNT,
     makeNoiseTiles: makeNoiseTiles,

@@ -709,6 +709,153 @@ check('weighted picker favours the disorienting effects', async () => {
   dom.window.close();
 });
 
+check('the reading line is shoved away the moment a glitch ends', async () => {
+  const script = new Array(30).fill(0).map((_, i) => 'line ' + i).join('\n');
+  const dom = await prompterPage(makeStorage({ 'prompter-script': script }));
+  const inst = dom.window.Prompter.instance;
+  const viewH = dom.window.innerHeight;
+  const zoneCentre = viewH / 2;
+  const api = dom.window.Prompter;
+
+  inst.engine.stop();
+  inst.seek(viewH);
+
+  const nearestToZone = () => {
+    const rows = Array.prototype.map.call(
+      dom.window.document.querySelectorAll('.line'),
+      (el) => {
+        const m = /translate\(-50%,\s*(-?[\d.]+)px\)/.exec(el.style.transform);
+        if (!m || el.style.visibility === 'hidden') { return null; }
+        return { text: el.textContent, centre: parseFloat(m[1]) + 31 };
+      }
+    ).filter(Boolean);
+    return rows.reduce((a, b) =>
+      Math.abs(a.centre - zoneCentre) <= Math.abs(b.centre - zoneCentre) ? a : b);
+  };
+
+  const before = nearestToZone();
+  const offsetBefore = inst.getOffset();
+
+  inst.engine.triggerGlitch('blank', 20);
+  inst.engine.endGlitch();
+  inst.render();
+
+  const offsetAfter = inst.getOffset();
+  assert(offsetAfter > offsetBefore,
+    'ending a glitch should push the script forward, not leave it in place');
+
+  /* the line that was being read must now be near the top, on its way out */
+  const moved = Array.prototype.map.call(
+    dom.window.document.querySelectorAll('.line'),
+    (el) => {
+      const m = /translate\(-50%,\s*(-?[\d.]+)px\)/.exec(el.style.transform);
+      return m && el.textContent === before.text
+        ? parseFloat(m[1]) + 31 : null;
+    }
+  ).filter((v) => v !== null)[0];
+
+  assert(moved !== undefined, 'the previously-read line should still be tracked');
+  assert(moved < zoneCentre,
+    'the line being read should end up above the reading zone, got ' +
+    moved.toFixed(0) + 'px vs zone ' + zoneCentre);
+  assert(moved <= viewH * api.POST_GLITCH_LAND_RATIO + 60,
+    'it should land near the top of the screen, got ' + moved.toFixed(0) + 'px');
+
+  /* and the shove is bounded, so it cannot fling the script away */
+  assert(offsetAfter - offsetBefore <= viewH * api.MAX_POST_GLITCH_SKIP_RATIO + 1,
+    'the shove must respect its ceiling, moved ' +
+    (offsetAfter - offsetBefore).toFixed(0) + 'px');
+  dom.window.close();
+});
+
+check('the shove only ever moves forward, never backward', async () => {
+  const script = new Array(30).fill(0).map((_, i) => 'line ' + i).join('\n');
+  const dom = await prompterPage(makeStorage({ 'prompter-script': script }));
+  const inst = dom.window.Prompter.instance;
+  inst.engine.stop();
+
+  /* fire repeatedly from the very start, where the reading line is
+     already above the landing point and the shove should do nothing */
+  inst.seek(0);
+  for (let i = 0; i < 5; i++) {
+    const before = inst.getOffset();
+    inst.engine.triggerGlitch('static', 20);
+    inst.engine.endGlitch();
+    assert(inst.getOffset() >= before,
+      'offset must never go backwards on glitch end');
+  }
+  dom.window.close();
+});
+
+check('reversing rolls the tail of the script in from the top', async () => {
+  /* Scrolling back past the start used to empty the screen. It should
+     instead wrap, so the end of the script comes down from above and
+     the reader has to find their place all over again. */
+  const script = new Array(10).fill(0).map((_, i) => 'line ' + (i + 1)).join('\n');
+  const dom = await prompterPage(makeStorage({ 'prompter-script': script }));
+  const inst = dom.window.Prompter.instance;
+  inst.engine.stop();
+
+  const visibleTexts = () => Array.prototype.filter.call(
+    dom.window.document.querySelectorAll('.line'),
+    (el) => el.style.visibility === 'visible'
+  ).map((el) => el.textContent);
+
+  /* run backwards past the beginning */
+  inst.seek(0);
+  inst.render();
+  const atStart = visibleTexts();
+  assert(atStart.length > 0, 'lines should be visible at the start');
+
+  inst.seek(-400);
+  inst.render();
+  const afterReverse = visibleTexts();
+
+  assert(afterReverse.length > 0,
+    'reversing past the start must not empty the screen');
+
+  /* the tail of the script should have wrapped into view */
+  const hasTail = afterReverse.some(
+    (t) => t === 'line 9' || t === 'line 10' || t === 'line 8');
+  assert(hasTail,
+    'the end of the script should roll in from the top, saw: ' +
+    afterReverse.join(', '));
+  dom.window.close();
+});
+
+check('wrapping never loops the script during forward scrolling', async () => {
+  /* Only the copy above the script is considered. A copy below would
+     make line 1 reappear from the bottom during ordinary scrolling and
+     the run would never reach its end. */
+  /* Long enough that the whole script cannot fit on screen at once,
+     otherwise seeing the first and last line together proves nothing. */
+  const script = new Array(40).fill(0).map((_, i) => 'line ' + (i + 1)).join('\n');
+  const dom = await prompterPage(makeStorage({ 'prompter-script': script }));
+  const inst = dom.window.Prompter.instance;
+  inst.engine.stop();
+
+  for (let px = 0; px <= 1800; px += 120) {
+    inst.seek(px);
+    inst.render();
+    const indices = Array.prototype.filter.call(
+      dom.window.document.querySelectorAll('.line'),
+      (el) => el.style.visibility === 'visible'
+    ).map((el) => parseInt(el.textContent.replace('line ', ''), 10)).sort((a, b) => a - b);
+
+    if (indices.length < 2) { continue; }
+    assert(indices.length < 40,
+      'the whole script should not be on screen at once at offset ' + px);
+
+    /* A contiguous run means no wrap. A gap means the tail has looped
+       around to sit alongside the head. */
+    const span = indices[indices.length - 1] - indices[0] + 1;
+    assertEqual(span, indices.length,
+      'visible lines should stay contiguous during forward scroll; at offset ' +
+      px + ' saw ' + indices.join(','));
+  }
+  dom.window.close();
+});
+
 check('most glitches produce an unmistakable full-screen event', async () => {
   /* The regression this guards: freeze, reverse, swap and mirror are all
      quiet. Adding swap and mirror pushed the quiet share to 39%, and a
