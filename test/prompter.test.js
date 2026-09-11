@@ -513,6 +513,108 @@ check('every declared glitch effect is reachable and safe to fire', async () => 
   dom.window.close();
 });
 
+check('glitches are dense enough to be genuinely disruptive', async () => {
+  /* A previous build sat near a 10% duty cycle and was comfortable
+     enough to read a whole paragraph through, which defeats the tool.
+     This pins the tuning so it cannot quietly drift back. */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
+  const d = dom.window.Prompter.GLITCH_DEFAULTS;
+
+  const avgGap = (d.minDelay + d.maxDelay) / 2;
+  const avgDuration = (d.minDuration + d.maxDuration) / 2;
+  const dutyCycle = avgDuration / (avgGap + avgDuration);
+
+  assert(dutyCycle > 0.3,
+    'at least 30% of reading time should be mid-glitch, got ' +
+    (dutyCycle * 100).toFixed(1) + '%');
+  assert(avgGap < 2000,
+    'average quiet gap must stay under 2s, got ' + avgGap + 'ms');
+  dom.window.close();
+});
+
+check('speed bursts are fast enough to lose your place', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
+  const api = dom.window.Prompter;
+  const engine = api.createGlitchEngine({ storage: makeStorage() });
+
+  /* sample the burst speed a few times, it is randomized per event */
+  let min = Infinity;
+  for (let i = 0; i < 40; i++) {
+    engine.triggerGlitch('speed', 50);
+    min = Math.min(min, engine.getMultiplier());
+    engine.endGlitch();
+  }
+  assert(min >= 8, 'even the mildest speed burst should be >=8x, got ' + min.toFixed(1) + 'x');
+
+  /* at base speed, one second of the slowest burst should cover
+     several lines rather than a fraction of one */
+  const pxPerSecond = api.BASE_SPEED * min;
+  assert(pxPerSecond > 300,
+    'a speed burst should move >300px/s, got ' + pxPerSecond.toFixed(0) + 'px/s');
+  engine.stop();
+  dom.window.close();
+});
+
+check('weighted picker favours the disorienting effects', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
+  const api = dom.window.Prompter;
+  const engine = api.createGlitchEngine({ storage: makeStorage() });
+
+  const seen = {};
+  for (let i = 0; i < 3000; i++) {
+    const info = engine.triggerGlitch();
+    seen[info.effect] = (seen[info.effect] || 0) + 1;
+    engine.endGlitch();
+  }
+  api.GLITCH_EFFECTS.forEach((e) => {
+    assert(seen[e] > 0, e + ' should still be reachable from the weighted picker');
+  });
+  assert(seen.speed > seen.reverse,
+    'speed should out-fire reverse, got speed=' + seen.speed + ' reverse=' + seen.reverse);
+  assert(seen.blank / 3000 > 0.12,
+    'blank should fire on >12% of events, got ' + ((seen.blank / 3000) * 100).toFixed(1) + '%');
+  engine.stop();
+  dom.window.close();
+});
+
+check('grain is opaque enough to obscure text, not just tint it', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
+  const api = dom.window.Prompter;
+
+  let captured = null;
+  const fakeDoc = {
+    createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({
+        createImageData: (x, y) => ({ data: new Uint8ClampedArray(x * y * 4) }),
+        putImageData(img) { captured = img; }
+      }),
+      toDataURL: () => 'data:image/png;base64,X'
+    })
+  };
+  api.makeNoiseTiles(fakeDoc, 32, 1);
+
+  const data = captured.data;
+  let opaque = 0;
+  let total = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    total++;
+    if (data[i + 3] > 120) { opaque++; }
+  }
+  /* A band, not a floor. Too transparent and the grain only tints the
+     glow without hindering reading; too opaque and the screen goes
+     fully black, which erases the text instead of fighting it. Both
+     failure modes have happened in this build. */
+  const coverage = opaque / total;
+  assert(coverage > 0.45,
+    'grain must be opaque enough to break up glyphs, got ' +
+    (coverage * 100).toFixed(1) + '%');
+  assert(coverage < 0.8,
+    'grain must not be so opaque it blacks the screen out, got ' +
+    (coverage * 100).toFixed(1) + '%');
+  dom.window.close();
+});
+
 check('noise tiles degrade to the CSS fallback where canvas is missing', async () => {
   /* jsdom has no canvas backend, which is exactly the degraded case the
      generator has to survive without throwing */

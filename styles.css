@@ -233,10 +233,12 @@ body.prompter { overflow: hidden; height: 100vh; }
     repeating-linear-gradient(0deg, rgba(255,255,255,0.13) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(90deg, rgba(214,70,239,0.10) 0 1px, transparent 1px 4px);
   background-repeat: repeat;
-  mix-blend-mode: screen;
+  /* deliberately NOT mix-blend-mode: screen. Screen can only lighten,
+     so it could never obscure the glow; normal compositing lets the
+     grain sit on top of the text and actually break it up. */
 }
 
-#static-overlay.active { opacity: 0.85; }
+#static-overlay.active { opacity: 0.6; }
 
 #blank-overlay {
   position: absolute;
@@ -246,9 +248,33 @@ body.prompter { overflow: hidden; height: 100vh; }
   pointer-events: none;
 }
 
-#blank-overlay.active { opacity: 1; }
+/* A single fade to black is easy to read through - you just wait it
+   out. Hard-cut strobing is what actually costs you your place. */
+@keyframes blank-strobe {
+  0%, 38%   { opacity: 1; }
+  39%, 49%  { opacity: 0; }
+  50%, 72%  { opacity: 1; }
+  73%, 83%  { opacity: 0; }
+  84%, 100% { opacity: 1; }
+}
 
-#stage.glitching { filter: contrast(1.5) brightness(1.25); }
+#blank-overlay.active {
+  opacity: 1;
+  animation: blank-strobe 180ms steps(1, end) infinite;
+}
+
+@keyframes stage-shake {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-3px, 2px); }
+  50%  { transform: translate(4px, -2px); }
+  75%  { transform: translate(-2px, -3px); }
+  100% { transform: translate(3px, 1px); }
+}
+
+#stage.glitching {
+  filter: contrast(1.9) brightness(1.35) saturate(1.4);
+  animation: stage-shake 110ms steps(2, end) infinite;
+}
 
 /* Countdown */
 #countdown {

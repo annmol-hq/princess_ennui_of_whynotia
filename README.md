@@ -99,11 +99,12 @@ and below climb to 1.0. Measured at this exact frame: 0.26 at 40px from the zone
 purpose.*
 
 ![Glitch firing](screenshots/5-static-glitch.jpg)
-*A static glitch held open. The grain is real pixel noise: five 96px tiles are rendered to
-an offscreen canvas once at startup and then cycled and re-offset per frame, which costs
-about 30ms at load and no pixel work at all while running. Note the betrayal counter in
-the bottom right, which persists across sessions, and that the inversion still holds
-during a glitch: the middle lines are the dim ones because they are in the reading zone.*
+*A static glitch held open. The grain is real pixel noise, composited over the text rather
+than screen-blended, so it genuinely breaks the glyphs up instead of merely tinting them:
+the lines in the reading zone are close to illegible here. Five 96px tiles are rendered to
+an offscreen canvas once at startup and then cycled and re-offset per frame, costing about
+30ms at load and no pixel work while running. The betrayal counter in the bottom right
+persists across sessions.*
 
 ![Empty state](screenshots/6-empty-state.jpg)
 *With no script saved, the prompter explains itself and offers a way back instead of

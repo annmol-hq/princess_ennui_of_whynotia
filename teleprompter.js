@@ -39,10 +39,11 @@
      the glow rather than reading as neutral TV snow. */
   var NOISE_GREEN_BIAS = 0.62;
 
-  /* Fraction of pixels left fully transparent. Without this the tile
-     averages ~50% alpha, which lifts the near-black background into a
-     flat purple haze instead of reading as speckle. */
-  var NOISE_SPARSITY = 0.62;
+  /* Fraction of pixels left fully transparent. Kept low: the grain has
+     to physically cover glyphs to interfere with reading. A sparse,
+     screen-blended version looked like static but could not obscure
+     anything, because screen blending only ever lightens. */
+  var NOISE_SPARSITY = 0.3;
 
   /* Returns an array of data-URI strings, or an empty array where
      canvas is unavailable (jsdom, very old browsers), in which case the
@@ -72,9 +73,10 @@
           data[i] = v;
           data[i + 1] = (v * NOISE_GREEN_BIAS) | 0;
           data[i + 2] = v;
-          /* most pixels punched out entirely, the rest at uneven alpha:
-             that combination is what reads as speckle rather than wash */
-          data[i + 3] = random() < NOISE_SPARSITY ? 0 : (random() * 255) | 0;
+          /* Mostly opaque, so the tile lands ON TOP of the glyphs and
+             genuinely breaks them up, with a minority punched out to
+             keep it reading as noise rather than a solid panel. */
+          data[i + 3] = random() < NOISE_SPARSITY ? 0 : 100 + ((random() * 130) | 0);
         }
         ctx.putImageData(img, 0, 0);
         tiles.push(canvas.toDataURL('image/png'));
@@ -138,6 +140,21 @@
 
   var GLITCH_EFFECTS = ['speed', 'freeze', 'reverse', 'static', 'blank'];
 
+  /* Not uniform. Speed and blank are the two that actually break a
+     reader's place, so they carry the most weight. */
+  var GLITCH_WEIGHTS = { speed: 32, blank: 23, static: 19, freeze: 14, reverse: 12 };
+
+  /* Aggressive by design. At these numbers roughly 40% of any given
+     second is spent mid-glitch, which is the point of the tool: an
+     earlier build sat near a 10% duty cycle and was comfortable enough
+     to read a whole paragraph through. */
+  var GLITCH_DEFAULTS = {
+    minDelay: 450,
+    maxDelay: 2300,
+    minDuration: 420,
+    maxDuration: 1750
+  };
+
   /* A scheduler that fires at random intervals. It never touches the
      baseline speed value itself - it only exposes a multiplier that the
      render loop applies on top, so when a glitch ends the baseline
@@ -145,10 +162,10 @@
   function createGlitchEngine(options) {
     var opts = options || {};
     var random = opts.random || Math.random;
-    var minDelay = opts.minDelay || 3500;
-    var maxDelay = opts.maxDelay || 9000;
-    var minDuration = opts.minDuration || 260;
-    var maxDuration = opts.maxDuration || 1100;
+    var minDelay = opts.minDelay || GLITCH_DEFAULTS.minDelay;
+    var maxDelay = opts.maxDelay || GLITCH_DEFAULTS.maxDelay;
+    var minDuration = opts.minDuration || GLITCH_DEFAULTS.minDuration;
+    var maxDuration = opts.maxDuration || GLITCH_DEFAULTS.maxDuration;
     var storage = opts.storage;
 
     var count = loadBetrayalCount(storage);
@@ -161,22 +178,50 @@
     function between(lo, hi) { return lo + random() * (hi - lo); }
 
     function multiplierFor(effect) {
-      if (effect === 'speed') { return between(3.5, 6.5); }
+      /* fast enough to throw the reader several lines past their place,
+         not merely "a bit quick" */
+      if (effect === 'speed') { return between(9, 22); }
       if (effect === 'freeze') { return 0; }
-      if (effect === 'reverse') { return -between(0.8, 1.8); }
+      if (effect === 'reverse') { return -between(2.5, 5.5); }
       return 1; /* static and blank are visual only */
+    }
+
+    /* Weighted so the disorienting effects dominate. */
+    function pickEffect() {
+      var total = 0;
+      var i;
+      for (i = 0; i < GLITCH_EFFECTS.length; i++) {
+        total += GLITCH_WEIGHTS[GLITCH_EFFECTS[i]] || 1;
+      }
+      var r = random() * total;
+      var cum = 0;
+      for (i = 0; i < GLITCH_EFFECTS.length; i++) {
+        cum += GLITCH_WEIGHTS[GLITCH_EFFECTS[i]] || 1;
+        if (r < cum) { return GLITCH_EFFECTS[i]; }
+      }
+      return GLITCH_EFFECTS[GLITCH_EFFECTS.length - 1];
+    }
+
+    /* Scaled off the configured range rather than hard-coded, so an
+       explicit min/maxDuration from the caller is still respected. */
+    function durationFor(effect) {
+      var d = between(minDuration, maxDuration);
+      if (effect === 'blank') { return d * 0.45; }
+      if (effect === 'speed') { return d * 1.15; }
+      return d;
     }
 
     /* Fires one glitch event. The betrayal counter increments exactly
        once here - per event, never per frame. */
     function triggerGlitch(forcedEffect, forcedDuration) {
-      var effect = forcedEffect || GLITCH_EFFECTS[Math.floor(random() * GLITCH_EFFECTS.length)];
-      var duration = forcedDuration || between(minDuration, maxDuration);
+      var effect = forcedEffect || pickEffect();
+      var duration = forcedDuration || durationFor(effect);
 
-      /* sometimes stack a visual effect on top of a motion effect */
+      /* Usually stack a visual on top of a motion effect, so a speed
+         burst also blinds you rather than merely moving fast. */
       var visual = null;
-      if ((effect === 'speed' || effect === 'freeze' || effect === 'reverse') && random() < 0.45) {
-        visual = random() < 0.75 ? 'static' : 'blank';
+      if ((effect === 'speed' || effect === 'freeze' || effect === 'reverse') && random() < 0.72) {
+        visual = random() < 0.6 ? 'static' : 'blank';
       }
 
       active = true;
@@ -451,6 +496,8 @@
     MIN_BRIGHTNESS: MIN_BRIGHTNESS,
     MAX_BRIGHTNESS: MAX_BRIGHTNESS,
     GLITCH_EFFECTS: GLITCH_EFFECTS,
+    GLITCH_WEIGHTS: GLITCH_WEIGHTS,
+    GLITCH_DEFAULTS: GLITCH_DEFAULTS,
     NOISE_TILE_SIZE: NOISE_TILE_SIZE,
     NOISE_TILE_COUNT: NOISE_TILE_COUNT,
     makeNoiseTiles: makeNoiseTiles,
