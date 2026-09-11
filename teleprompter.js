@@ -296,11 +296,43 @@
      gap - this lands near a 20% duty cycle, roughly one interruption
      every three to five seconds. */
   var GLITCH_DEFAULTS = {
-    minDelay: 2200,
-    maxDelay: 4300,
-    minDuration: 320,
-    maxDuration: 1150
+    minDelay: 2100,
+    maxDelay: 2900,
+    minDuration: 1900,
+    maxDuration: 5000
   };
+
+  /* Per-effect duration scaling. Speed and blank are punchier short, so
+     they run well under the nominal range - which means the effective
+     duty cycle is lower than the raw min/maxDuration imply. Anything
+     reasoning about how much of the script stays readable has to weight
+     by these, not by the nominal average. */
+  var DURATION_SCALE = { speed: 0.5, blank: 0.5 };
+
+  /* Expected share of a run that stays readable, given a tuning. This
+     is what the report card's "script you actually got to read" figure
+     converges on, so it is the number to reason about when deciding how
+     hostile the prompter should be. Weighted by effect probability and
+     by each effect's duration scaling. */
+  function expectedReadableShare(defaults, weights, scales) {
+    var d = defaults || GLITCH_DEFAULTS;
+    var w = weights || GLITCH_WEIGHTS;
+    var s = scales || DURATION_SCALE;
+
+    var totalWeight = 0;
+    var scaleSum = 0;
+    for (var i = 0; i < GLITCH_EFFECTS.length; i++) {
+      var effect = GLITCH_EFFECTS[i];
+      var weight = w[effect] || 0;
+      totalWeight += weight;
+      scaleSum += weight * (s[effect] || 1);
+    }
+    if (!totalWeight) { return 1; }
+
+    var avgGap = (d.minDelay + d.maxDelay) / 2;
+    var avgDuration = ((d.minDuration + d.maxDuration) / 2) * (scaleSum / totalWeight);
+    return avgGap / (avgGap + avgDuration);
+  }
 
   /* A scheduler that fires at random intervals. It never touches the
      baseline speed value itself - it only exposes a multiplier that the
@@ -354,10 +386,7 @@
        explicit min/maxDuration from the caller is still respected. */
     function durationFor(effect) {
       var d = between(minDuration, maxDuration);
-      if (effect === 'blank') { return d * 0.45; }
-      /* short and punchy: a long fast burst is just a fast-forward */
-      if (effect === 'speed') { return d * 0.7; }
-      return d;
+      return d * (DURATION_SCALE[effect] || 1);
     }
 
     /* Fires one glitch event. The betrayal counter increments exactly
@@ -786,6 +815,8 @@
     buildReport: buildReport,
     createGlitchAudio: createGlitchAudio,
     GLITCH_DEFAULTS: GLITCH_DEFAULTS,
+    DURATION_SCALE: DURATION_SCALE,
+    expectedReadableShare: expectedReadableShare,
     MAX_BURST_TRAVEL_RATIO: MAX_BURST_TRAVEL_RATIO,
     NOISE_TILE_SIZE: NOISE_TILE_SIZE,
     NOISE_TILE_COUNT: NOISE_TILE_COUNT,
