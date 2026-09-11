@@ -4,6 +4,8 @@
 
 # Glitch Teleprompter 🎯
 
+### *It prompts. It does not help.*
+
 
 ## Basic Details
 ### Team Name: Irrelevant
@@ -14,10 +16,12 @@
 - Member 2: Aditya T R - Sahrdaya College of Engineering and Technology, Kodakara
 
 ### Project Description
-A two-page web teleprompter that scrolls your script at a calm, steady reading pace
-and then actively works against you. At random intervals it speeds up, freezes,
-reverses, bursts into static, or blanks out entirely. The line you are supposed to be
-reading is dimmed almost to nothing, while the lines you are not reading glow brightly.
+A teleprompter built to sabotage the person reading from it. The line you actually need is
+dimmed almost to nothing, while every line you do not need glows brightly and pulls your
+eye away. Every few seconds it interrupts itself at random: blacking the screen out,
+collapsing into television static, lurching forward, freezing, running backwards, or
+quietly changing a word in a sentence you have not reached yet. None of it responds to how
+well you are doing. It grades you at the end anyway.
 
 ### The Problem (that doesn't exist)
 Teleprompters have made public speaking far too easy. Newsreaders simply *read the words*
@@ -175,8 +179,15 @@ mutation-tested: flipping `computeBrightness` to the conventional orientation ma
 tests fail, which proves the test can actually detect the mistake.
 
 ## Team Contributions
-- Ann Mariya K Saju: [Specific contributions]
-- Aditya T R: [Specific contributions]
+- Ann Mariya K Saju: Concept and the inverted brightness rule that the whole joke rests on.
+  Built the setup page - the autosaving script editor, the character-scramble topic roller,
+  and the local Mad-libs generators for the Speech, Note and Paragraph formats. Owned
+  localStorage persistence across both pages and the offline-first constraint that keeps the
+  tool working at a booth with no internet.
+- Aditya T R: Built the reading screen - the requestAnimationFrame scroll loop, the
+  brightness falloff, and the sabotage engine with its seven effects and weighted scheduler.
+  Wrote the Canvas signal-loss grain, the WebAudio glitch bursts, the wrap-around reverse
+  scroll, and the end-of-run report card. Owned the jsdom test suite.
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
