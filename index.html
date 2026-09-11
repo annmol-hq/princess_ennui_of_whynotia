@@ -1,1 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Princess Ennui of Whynotia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Space+Mono:wght@400;700&family=Beau+Rivage&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
+<main class="stage" id="stage">
+
+  <div class="frame">
+    <div class="frame-corner tl"></div>
+    <div class="frame-corner tr"></div>
+    <div class="frame-corner bl"></div>
+    <div class="frame-corner br"></div>
+
+    <nav class="royal-nav" id="royal-nav">
+      <button class="nav-btn is-active" data-target="screen-idle">the princess</button>
+      <button class="nav-btn" data-target="screen-address">royal address helper</button>
+      <button class="nav-btn" data-target="screen-challenge">read the decree</button>
+      <button class="nav-btn" data-target="screen-notes">the notes app</button>
+      <button class="nav-btn" data-target="screen-council">the council</button>
+      <button class="nav-btn" data-target="screen-todo">royal duties</button>
+    </nav>
+
+    <!-- IDLE / Q&A SCREEN -->
+    <section class="screen screen--idle" id="screen-idle">
+      <p class="eyebrow">the kingdom of whynotia presents</p>
+      <h1 class="crest-name">Princess Ennui</h1>
+      <p class="subtitle">her one royal gift: achieving nothing, with maximum effort</p>
+
+      <div class="crest" aria-hidden="true"><div class="crest-pulse"></div></div>
+
+      <div class="dialogue" id="dialogue" aria-live="polite">
+        <p class="dialogue-line" id="dialogue-line">ask her something. she will not appreciate it.</p>
+      </div>
+
+      <form class="ask-form" id="ask-form" autocomplete="off">
+        <input
+          type="text"
+          id="ask-input"
+          class="ask-input"
+          placeholder="speak, peasant..."
+          maxlength="120"
+        >
+        <button type="submit" class="ask-submit">ask</button>
+      </form>
+
+      <p class="hint">ask something real, get nothing useful. ask nonsense, get a fact.</p>
+    </section>
+
+    <!-- ROYAL ADDRESS HELPER (practice teleprompter) -->
+    <section class="screen screen--address" id="screen-address" hidden>
+      <p class="eyebrow">the royal address helper</p>
+      <h2 class="crest-name small">for official explaining</h2>
+      <p class="subtitle">reads the pitch aloud with you. betrays you on no schedule at all.</p>
+
+      <div class="prompter" id="prompter-box">
+        <p class="prompter-line" id="prompter-line">press start when you're ready to speak.</p>
+      </div>
+
+      <div class="prompter-controls">
+        <button class="nav-btn" id="prompter-start">start</button>
+        <button class="nav-btn" id="prompter-next">next line</button>
+      </div>
+    </section>
+
+    <!-- VISITOR DECREE CHALLENGE -->
+    <section class="screen screen--challenge" id="screen-challenge" hidden>
+      <p class="eyebrow">can you read a royal decree without faltering?</p>
+      <h2 class="crest-name small">hesitate, and the words abandon you</h2>
+
+      <div class="tier-row" id="tier-row">
+        <button class="tier-btn" data-tier="novice">
+          <span class="crowns">♛</span>
+          <span>novice</span>
+          <span class="tier-sub">short and clean</span>
+        </button>
+        <button class="tier-btn" data-tier="court">
+          <span class="crowns">♛♛</span>
+          <span>court</span>
+          <span class="tier-sub">longer, trickier</span>
+        </button>
+        <button class="tier-btn" data-tier="royal">
+          <span class="crowns">♛♛♛</span>
+          <span>royal</span>
+          <span class="tier-sub">brutal</span>
+        </button>
+      </div>
+
+      <div class="prompter" id="decree-box" hidden>
+        <p class="prompter-line" id="decree-line"></p>
+      </div>
+
+      <button class="nav-btn" id="decree-done" hidden>i have finished reading</button>
+
+      <p class="result-line" id="decree-result"></p>
+
+      <div class="tally-row" id="tally-row">
+        <span>novice: <span id="tally-novice">0 / 0</span></span>
+        <span>court: <span id="tally-court">0 / 0</span></span>
+        <span>royal: <span id="tally-royal">0 / 0</span></span>
+      </div>
+    </section>
+
+    <!-- THE ROYAL NOTEBOOK -->
+    <section class="screen screen--notes" id="screen-notes" hidden>
+      <p class="eyebrow">for a princess nobody can ever borrow notes from</p>
+      <h2 class="crest-name small">the royal notebook</h2>
+      <p class="subtitle">everything here is genuine. none of it is readable.</p>
+
+      <div class="notes-layout">
+        <div class="notes-editor">
+          <input type="text" id="note-title-input" class="ask-input" placeholder="title...">
+          <textarea id="note-body-input" class="note-textarea" placeholder="write your note here..." rows="4"></textarea>
+
+          <p class="notes-preview-label">how it will actually look:</p>
+          <div class="notes-scrawl-preview" id="notes-scrawl-preview" aria-hidden="true"></div>
+
+          <div class="notes-actions">
+            <button class="nav-btn" id="note-save-btn">save note</button>
+            <button class="nav-btn" id="note-summarize-btn">summarize</button>
+            <button class="nav-btn" id="note-remind-btn">set reminder</button>
+          </div>
+
+          <p class="result-line" id="notes-feedback"></p>
+        </div>
+
+        <div class="notes-sidebar">
+          <input type="text" id="note-search-input" class="ask-input" placeholder="search your notes...">
+          <div class="notes-list" id="notes-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THE COUNCIL OF SEVEN -->
+    <section class="screen screen--council" id="screen-council" hidden>
+      <p class="eyebrow">no royal decision, however small, is made without proper deliberation</p>
+      <h2 class="crest-name small">the council of seven</h2>
+      <p class="subtitle">centuries of combined wisdom. the verdict rests on a coin regardless.</p>
+
+      <div class="council-presets" id="council-presets">
+        <button class="tier-btn council-preset-btn" data-preset="0">left crown, or right crown today?</button>
+        <button class="tier-btn council-preset-btn" data-preset="1">should the royal cat be granted a formal title?</button>
+        <button class="tier-btn council-preset-btn" data-preset="2">what should today's royal snack be?</button>
+      </div>
+
+      <form class="ask-form" id="council-custom-form" autocomplete="off">
+        <input
+          type="text"
+          id="council-custom-input"
+          class="ask-input"
+          placeholder="or bring your own matter of state..."
+          maxlength="100"
+        >
+        <button type="submit" class="ask-submit">convene</button>
+      </form>
+
+      <div class="council-log" id="council-log"></div>
+      <p class="result-line" id="council-verdict"></p>
+    </section>
+
+    <!-- ROYAL DUTIES (the bureaucratic to-do app) -->
+    <section class="screen screen--todo" id="screen-todo" hidden>
+      <p class="eyebrow">a princess's duties are many, today's is one single task</p>
+      <h2 class="crest-name small">royal duties</h2>
+      <p class="subtitle" id="todo-task-label">press begin to receive today's duty</p>
+
+      <p class="todo-timer" id="todo-timer" hidden>time spent completing 1 task: 0:00</p>
+
+      <button class="nav-btn" id="todo-begin-btn">begin duty</button>
+
+      <div class="todo-step" id="todo-step-captcha" hidden>
+        <p class="todo-step-label">prove you are not a peasant. tap every crown.</p>
+        <div class="captcha-grid" id="captcha-grid"></div>
+        <p class="result-line" id="captcha-feedback"></p>
+        <button class="nav-btn" id="captcha-verify-btn">verify</button>
+      </div>
+
+      <div class="todo-step" id="todo-step-terms" hidden>
+        <p class="todo-step-label">read the terms in full. yes, all of it.</p>
+        <div class="terms-scroll" id="terms-scroll">
+          <p>By checking this box, the undersigned hereby acknowledges that productivity is a construct, that the Kingdom of Whynotia accepts no liability for tasks actually completed, and that the royal cat retains veto power over all decisions, decrees, and snack times, in perpetuity, forever, without further notice, unless otherwise notified, which it will not be.</p>
+          <p>The undersigned further agrees that "royal duty" is a fluid concept subject to reinterpretation by whichever advisor is nearest at the time, that any grievance must be submitted in triplicate to a department that does not exist, and that silence shall be considered enthusiastic consent, as shall applause, yawning, and mild indifference.</p>
+          <p>Finally, the undersigned accepts that reading this far grants no special privilege, that the box below will be checked eventually regardless of protest, and that the Kingdom of Whynotia thanks you for your patience during a process that was never necessary in the first place.</p>
+        </div>
+        <button class="nav-btn" id="terms-agree-btn" disabled>i agree (scroll to enable)</button>
+      </div>
+
+      <div class="todo-step" id="todo-step-blockchain" hidden>
+        <p class="todo-step-label" id="blockchain-status">Consulting the Royal Ledger...</p>
+      </div>
+
+      <div class="todo-step" id="todo-step-trivia" hidden>
+        <p class="todo-step-label">What is the correct royal protocol color for Tuesdays?</p>
+        <div class="trivia-options" id="trivia-options">
+          <button class="tier-btn" type="button" data-correct="false">Mildly Aggressive Teal</button>
+          <button class="tier-btn" type="button" data-correct="false">Whatever the cat is wearing</button>
+          <button class="tier-btn" type="button" data-correct="false">There is no protocol, there never was</button>
+          <button class="tier-btn" type="button" data-correct="true">All of the above, simultaneously</button>
+        </div>
+        <p class="result-line" id="trivia-feedback"></p>
+      </div>
+
+      <div class="todo-step" id="todo-step-done" hidden>
+        <p class="result-line" id="todo-done-line">Achieved. At great cost. For nothing.</p>
+        <button class="nav-btn" id="todo-again-btn">receive another duty</button>
+      </div>
+    </section>
+
+  </div>
+
+</main>
+
+<script src="script.js"></script>
+<script src="nav.js"></script>
+<script src="teleprompter.js"></script>
+<script src="notes.js"></script>
+<script src="council.js"></script>
+<script src="todo.js"></script>
+</body>
+</html>
