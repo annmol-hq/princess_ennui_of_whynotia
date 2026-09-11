@@ -345,3 +345,126 @@ body.prompter { overflow: hidden; height: 100vh; }
 }
 
 #back-link:hover { color: var(--accent); }
+
+/* ---------------- Calibration (pure theatre) ---------------- */
+
+#calibration {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+#calibration[hidden] { display: none; }
+
+#calibration h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: 6px;
+  color: var(--accent);
+  text-shadow: 0 0 4px currentColor, 0 0 11px currentColor, 0 0 19px var(--accent-soft);
+}
+
+#calibration-track {
+  width: min(420px, 70vw);
+  height: 6px;
+  border: 1px solid var(--pill-edge);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+#calibration-bar {
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  transition: width 0.12s linear;
+}
+
+#calibration-note {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--dim-ink);
+}
+
+/* ---------------- Mirror flip glitch ---------------- */
+
+#lines.mirrored { transform: scaleX(-1); }
+
+/* ---------------- Report card ---------------- */
+
+#report-card {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 32px;
+  text-align: center;
+}
+
+#report-card h2 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-shadow: 0 0 4px currentColor, 0 0 11px currentColor, 0 0 19px var(--accent-soft);
+}
+
+#report-card dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(540px, 88vw);
+}
+
+#report-card dl div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px dotted var(--pill-edge);
+  padding-bottom: 6px;
+}
+
+#report-card dt {
+  font-size: 14px;
+  color: var(--dim-ink);
+  text-align: left;
+  letter-spacing: 1px;
+}
+
+#report-card dd {
+  margin: 0;
+  font-size: 22px;
+  color: var(--accent);
+  text-shadow: 0 0 4px currentColor, 0 0 11px currentColor;
+}
+
+#report-card .verdict {
+  margin: 0;
+  max-width: 520px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+#report-card a {
+  color: var(--accent);
+  border: 1px solid var(--pill-edge);
+  border-radius: 8px;
+  padding: 12px 26px;
+  text-decoration: none;
+  letter-spacing: 2px;
+}

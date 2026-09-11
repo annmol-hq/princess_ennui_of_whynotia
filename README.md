@@ -29,9 +29,17 @@ Nobody has ever had to earn a speech.
 We built a teleprompter that is on nobody's side. It inverts the one thing every
 teleprompter and karaoke screen on earth gets right: the line in the reading zone is the
 *dimmest* thing on screen, and your eye is dragged away by the bright, perfectly legible
-lines you do not need yet. On top of that sits a sabotage engine that fires on its own
-schedule, completely indifferent to how well you are doing. It keeps a permanent count of
-how many times it has betrayed you, and that number survives closing the browser.
+lines you do not need yet.
+
+On top of that sits a sabotage engine that fires on its own schedule, completely
+indifferent to how well you are doing. It can speed the script up, freeze it, run it
+backwards, drop the whole screen into television snow, strobe it to black, mirror-flip the
+text, or quietly swap a word in a line you have not reached yet so you say "the secret
+life of forbidden trolleys" out loud before you notice.
+
+It opens by pretending to calibrate itself to your reading pace, which it does not do. It
+closes by grading your performance, which it personally ruined. And it keeps a permanent
+count of how many times it has betrayed you, which survives closing the browser.
 
 ## Technical Details
 ### Technologies/Components Used
@@ -39,8 +47,9 @@ For Software:
 - **Languages:** HTML5, CSS3, JavaScript (vanilla, ES5-style, no transpiler)
 - **Frameworks:** None. Deliberately zero framework and zero build step.
 - **Libraries:** jsdom (dev dependency, test harness only). Share Tech Mono is embedded
-  directly in the stylesheet as a base64 woff2, so the pages make zero network requests
-  and run identically with the wifi switched off.
+  directly in the stylesheet as a base64 woff2, the grain is generated with Canvas, and
+  the glitch audio is synthesised in WebAudio. No image files, no sound files, no CDN:
+  the pages make zero network requests and run identically with the wifi switched off.
 - **Tools:** Node.js 24, npm, Git, Chrome DevTools
 
 For Hardware:
@@ -104,6 +113,16 @@ signal-loss television snow: opaque pixel noise across the full black-to-white r
 composited over the text so nothing shows through for the length of the burst. Six 128px
 tiles are rendered to an offscreen canvas once at startup, then cycled every other frame
 and re-offset, costing about 38ms at load and no pixel work while running.*
+
+![Calibration](screenshots/8-calibration.jpg)
+*Before the countdown, the prompter "calibrates to your reading pace". It measures
+nothing, adapts nothing, and discards the result. The glitch schedule was always going to
+be random. A test asserts this step can never touch the engine, because the moment it did,
+the joke would stop being true.*
+
+![Report card](screenshots/9-report-card.jpg)
+*The end of a run. The tool grades you on a performance it personally ruined, then keeps
+the all-time betrayal tally so the number follows you between sessions.*
 
 ![Empty state](screenshots/6-empty-state.jpg)
 *With no script saved, the prompter explains itself and offers a way back instead of

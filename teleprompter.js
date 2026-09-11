@@ -102,6 +102,120 @@
     return tiles;
   }
 
+  /* ---------- the report card ---------- */
+
+  var VERDICTS = [
+    /* worst first; the first entry whose threshold the score clears wins */
+    { at: 90, text: 'Suspiciously competent. The machine will try harder next time.' },
+    { at: 70, text: 'Adequate. Nobody will remember it, which is its own kind of mercy.' },
+    { at: 50, text: 'A performance. Technically. Some words were definitely said.' },
+    { at: 30, text: 'The audience has questions. None of them are about your topic.' },
+    { at: 15, text: 'Whatever that was, it was not a speech. Areas for improvement: everything.' },
+    { at: 0, text: 'Total communication failure. Genuinely impressive in its own way.' }
+  ];
+
+  /* Pure so the numbers can be tested without running a real scroll.
+     None of this is a real measurement of the reader - it is the tool
+     grading you for a mess it created, which is the joke. */
+  function buildReport(stats) {
+    var glitches = stats.glitches || 0;
+    var readable = stats.readableMs || 0;
+    var obscured = stats.obscuredMs || 0;
+    var total = readable + obscured;
+
+    var readPercent = total > 0 ? Math.round((readable / total) * 100) : 0;
+
+    /* confidence falls off with both interruption count and lost time */
+    var confidence = Math.max(0, Math.min(99,
+      Math.round(readPercent - glitches * 3.5)));
+
+    var verdict = VERDICTS[VERDICTS.length - 1].text;
+    for (var i = 0; i < VERDICTS.length; i++) {
+      if (confidence >= VERDICTS[i].at) { verdict = VERDICTS[i].text; break; }
+    }
+
+    return {
+      glitches: glitches,
+      readPercent: readPercent,
+      obscuredSeconds: Math.round(obscured / 100) / 10,
+      confidence: confidence,
+      allTime: stats.allTime || 0,
+      verdict: verdict
+    };
+  }
+
+  /* ---------- glitch audio ---------- */
+
+  /* White noise synthesised in WebAudio rather than shipped as a file,
+     so this stays a zero-asset, zero-network page. Returns a no-op
+     shim wherever WebAudio is missing or blocked, so a silent browser
+     never breaks the prompter. */
+  function createGlitchAudio(win) {
+    var w = win || global;
+    var Ctx = w.AudioContext || w.webkitAudioContext;
+    var silent = { burst: function () {}, resume: function () {}, ok: false };
+    if (!Ctx) { return silent; }
+
+    var ctx;
+    try { ctx = new Ctx(); } catch (e) { return silent; }
+
+    /* one second of noise, reused for every burst */
+    var buffer;
+    try {
+      var frames = ctx.sampleRate;
+      buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+      var chan = buffer.getChannelData(0);
+      for (var i = 0; i < frames; i++) { chan[i] = Math.random() * 2 - 1; }
+    } catch (e) { return silent; }
+
+    function burst(effect, durationMs) {
+      if (!ctx || ctx.state === 'closed') { return; }
+      try {
+        var now = ctx.currentTime;
+        var dur = Math.min(1.2, Math.max(0.05, (durationMs || 300) / 1000));
+
+        var src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.loop = true;
+
+        /* Different textures per effect: hiss for the visual failures,
+           a duller thud for the ones that move the script. */
+        var filter = ctx.createBiquadFilter();
+        if (effect === 'static' || effect === 'blank') {
+          filter.type = 'highpass';
+          filter.frequency.value = 1400;
+        } else if (effect === 'freeze' || effect === 'reverse') {
+          filter.type = 'lowpass';
+          filter.frequency.value = 320;
+        } else {
+          filter.type = 'bandpass';
+          filter.frequency.value = 800;
+        }
+
+        var gain = ctx.createGain();
+        var peak = (effect === 'static' || effect === 'blank') ? 0.16 : 0.1;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(peak, now + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        src.start(now);
+        src.stop(now + dur + 0.05);
+      } catch (e) { /* never let audio break the read */ }
+    }
+
+    return {
+      burst: burst,
+      /* browsers start the context suspended until a user gesture */
+      resume: function () {
+        try { if (ctx.state === 'suspended') { ctx.resume(); } } catch (e) { /* ignore */ }
+      },
+      ok: true
+    };
+  }
+
   /* ---------- the inverted brightness rule ---------- */
 
   /* distance = |line centre - reading zone centre|, in pixels.
@@ -153,11 +267,24 @@
 
   /* ---------- the sabotage layer ---------- */
 
-  var GLITCH_EFFECTS = ['speed', 'freeze', 'reverse', 'static', 'blank'];
+  var GLITCH_EFFECTS = ['speed', 'freeze', 'reverse', 'static', 'blank', 'swap', 'mirror'];
 
   /* Not uniform. Speed and blank are the two that actually break a
      reader's place, so they carry the most weight. */
-  var GLITCH_WEIGHTS = { speed: 32, blank: 23, static: 19, freeze: 14, reverse: 12 };
+  var GLITCH_WEIGHTS = {
+    speed: 26, blank: 19, static: 16, freeze: 11,
+    reverse: 10, swap: 12, mirror: 6
+  };
+
+  /* Substitutions for the word-swap glitch. The joke only lands if the
+     replacement is plausible enough to be read aloud before the reader
+     notices, so these are ordinary words, not nonsense. */
+  var SWAP_WORDS = [
+    'feelings', 'pigeons', 'moisture', 'regret', 'trousers', 'lasagne',
+    'bees', 'paperwork', 'gravy', 'betrayal', 'hamsters', 'legally',
+    'damp', 'goblins', 'enthusiasm', 'yoghurt', 'sincerely', 'haunted',
+    'committee', 'nonsense', 'jazz', 'unwell', 'forbidden', 'soup'
+  ];
 
   /* The delay is measured from the END of one glitch to the START of
      the next, so minDelay is a guaranteed floor of undisturbed reading.
@@ -317,6 +444,7 @@
     var countdownEl = d.getElementById('countdown');
     var emptyEl = d.getElementById('empty-message');
     var staticEl = d.getElementById('static-overlay');
+    var calibrationEl = d.getElementById('calibration');
     var blankEl = d.getElementById('blank-overlay');
     var counterEl = d.getElementById('betrayal-value');
     if (!linesEl) { return null; }
@@ -363,8 +491,58 @@
     var maxBurstTravel = viewH * MAX_BURST_TRAVEL_RATIO;
     var burstTravel = 0;
 
+    var audio = createGlitchAudio(w);
+
+    /* session tallies for the report card */
+    var sessionGlitches = 0;
+    var obscuredMs = 0;
+    var readableMs = 0;
+
+    /* word-swap bookkeeping: which node was altered, and its real text */
+    var swappedNode = null;
+    var swappedOriginal = null;
+
+    /* Swaps one word in a line the reader has not reached yet, so they
+       read it aloud before noticing. Picks from the lines below the
+       reading zone; if none qualify, does nothing rather than mangling
+       a line already being read. */
+    function applyWordSwap() {
+      var candidates = [];
+      for (var i = 0; i < nodes.length; i++) {
+        var y = startY + tops[i] - offset;
+        if (y > zoneCentre + 40 && y < viewH + 200) { candidates.push(nodes[i]); }
+      }
+      if (!candidates.length) { return; }
+
+      var node = candidates[Math.floor(Math.random() * candidates.length)];
+      var text = node.textContent;
+      var words = text.split(/(\s+)/);
+      var idx = [];
+      for (var j = 0; j < words.length; j++) {
+        if (/^[A-Za-z]{4,}$/.test(words[j])) { idx.push(j); }
+      }
+      if (!idx.length) { return; }
+
+      var pick = idx[Math.floor(Math.random() * idx.length)];
+      swappedNode = node;
+      swappedOriginal = text;
+      words[pick] = SWAP_WORDS[Math.floor(Math.random() * SWAP_WORDS.length)];
+      node.textContent = words.join('');
+    }
+
+    function undoWordSwap() {
+      if (swappedNode && swappedOriginal !== null) {
+        swappedNode.textContent = swappedOriginal;
+      }
+      swappedNode = null;
+      swappedOriginal = null;
+    }
+
     var engine = createGlitchEngine({
       onStart: function (info) {
+        sessionGlitches++;
+        audio.burst(info.effect, info.duration);
+
         if (stage) { stage.classList.add('glitching'); }
         if (info.visual === 'static' || info.effect === 'static') {
           if (staticEl) { staticEl.classList.add('active'); }
@@ -372,10 +550,14 @@
         if (info.visual === 'blank' || info.effect === 'blank') {
           if (blankEl) { blankEl.classList.add('active'); }
         }
+        if (info.effect === 'swap') { applyWordSwap(); }
+        if (info.effect === 'mirror' && linesEl) { linesEl.classList.add('mirrored'); }
         jitterStatic();
       },
       onEnd: function () {
         burstTravel = 0; /* each glitch gets its own travel budget */
+        undoWordSwap();
+        if (linesEl) { linesEl.classList.remove('mirrored'); }
         if (stage) { stage.classList.remove('glitching'); }
         if (staticEl) { staticEl.classList.remove('active'); }
         if (blankEl) { blankEl.classList.remove('active'); }
@@ -459,7 +641,14 @@
       offset += delta;
       if (offset < 0) { offset = 0; }
 
-      if (engine.isActive()) { jitterStatic(); }
+      /* Split the run into time the reader could actually use and time
+         the tool took away from them. Feeds the report card. */
+      if (engine.isActive()) {
+        obscuredMs += dt * 1000;
+        jitterStatic();
+      } else {
+        readableMs += dt * 1000;
+      }
 
       if (offset > totalHeight + startY) {
         finish();
@@ -477,19 +666,73 @@
       if (staticEl) { staticEl.classList.remove('active'); }
       if (blankEl) { blankEl.classList.remove('active'); }
 
+      undoWordSwap();
+      if (linesEl) { linesEl.classList.remove('mirrored'); }
+
+      var card = buildReport({
+        glitches: sessionGlitches,
+        readableMs: readableMs,
+        obscuredMs: obscuredMs,
+        allTime: engine.getCount()
+      });
+
       var end = d.createElement('div');
-      end.id = 'empty-message';
+      end.id = 'report-card';
       end.innerHTML =
         '<h2>END OF SCRIPT</h2>' +
-        '<p>You survived. The counter above is permanent.</p>' +
+        '<dl>' +
+        '<div><dt>Betrayals this session</dt><dd>' + card.glitches + '</dd></div>' +
+        '<div><dt>Script you actually got to read</dt><dd>' + card.readPercent + '%</dd></div>' +
+        '<div><dt>Time spent obstructed</dt><dd>' + card.obscuredSeconds + 's</dd></div>' +
+        '<div><dt>Estimated audience confidence</dt><dd>' + card.confidence + '%</dd></div>' +
+        '<div><dt>Betrayals all-time on this device</dt><dd>' + card.allTime + '</dd></div>' +
+        '</dl>' +
+        '<p class="verdict">' + card.verdict + '</p>' +
         '<a href="index.html">&larr; BACK TO SETUP</a>';
       if (stage) { stage.appendChild(end); }
+      return card;
     }
 
     function begin() {
+      audio.resume();
       render();
       engine.start();
       if (w.requestAnimationFrame) { w.requestAnimationFrame(frame); }
+    }
+
+    /* Pure theatre. It measures nothing, adapts nothing, and the result
+       is discarded - the glitch schedule is random and was always going
+       to be. Every real teleprompter implies it is working with you;
+       this one only implies it. */
+    function runCalibration(done) {
+      if (!calibrationEl) { done(); return; }
+      calibrationEl.hidden = false;
+
+      var bar = d.getElementById('calibration-bar');
+      var note = d.getElementById('calibration-note');
+      var notes = [
+        'measuring your natural reading pace',
+        'sampling syllable rate',
+        'adapting scroll speed to you',
+        'building your reader profile'
+      ];
+      var step = 0;
+
+      var tick = setInterval(function () {
+        step++;
+        if (bar) { bar.style.width = Math.min(100, step * 9) + '%'; }
+        if (note && step % 4 === 0) {
+          note.textContent = notes[Math.min(notes.length - 1, Math.floor(step / 4))];
+        }
+        if (step >= 11) {
+          clearInterval(tick);
+          if (note) { note.textContent = 'calibration complete'; }
+          setTimeout(function () {
+            calibrationEl.hidden = true;
+            done();
+          }, 420);
+        }
+      }, 130);
     }
 
     /* 3 - 2 - 1, then go */
@@ -510,13 +753,16 @@
       }, 1000);
     }
 
-    runCountdown(begin);
+    runCalibration(function () { runCountdown(begin); });
 
     return {
       started: true,
       engine: engine,
       lineCount: nodes.length,
       getOffset: function () { return offset; },
+      /* end the run now and show the report card, without waiting out
+         the whole script */
+      finish: function () { return finish(); },
       /* jump the scroll to a given pixel offset and repaint once */
       seek: function (px) {
         offset = Math.max(0, px);
@@ -535,6 +781,10 @@
     MAX_BRIGHTNESS: MAX_BRIGHTNESS,
     GLITCH_EFFECTS: GLITCH_EFFECTS,
     GLITCH_WEIGHTS: GLITCH_WEIGHTS,
+    SWAP_WORDS: SWAP_WORDS,
+    VERDICTS: VERDICTS,
+    buildReport: buildReport,
+    createGlitchAudio: createGlitchAudio,
     GLITCH_DEFAULTS: GLITCH_DEFAULTS,
     MAX_BURST_TRAVEL_RATIO: MAX_BURST_TRAVEL_RATIO,
     NOISE_TILE_SIZE: NOISE_TILE_SIZE,

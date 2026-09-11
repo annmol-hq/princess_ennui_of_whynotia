@@ -305,15 +305,99 @@ check('a real script renders one line element per line and hides the message', a
   dom.window.close();
 });
 
-check('countdown runs 3-2-1 before scrolling begins', async () => {
+check('fake calibration runs first, then the 3-2-1 countdown', async () => {
   const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha\nbravo' }));
-  const countdown = dom.window.document.getElementById('countdown');
+  const doc = dom.window.document;
+  const calibration = doc.getElementById('calibration');
+  const countdown = doc.getElementById('countdown');
 
-  assertEqual(countdown.hidden, false, 'countdown should be visible immediately on load');
+  assertEqual(calibration.hidden, false, 'calibration should show immediately on load');
+  assertEqual(countdown.hidden, true, 'countdown should wait for calibration to finish');
+
+  /* the bar should actually advance rather than sitting at zero */
+  await wait(700);
+  const width = parseFloat(doc.getElementById('calibration-bar').style.width) || 0;
+  assert(width > 0, 'calibration bar should progress, got ' + width + '%');
+
+  await wait(1700);
+  assertEqual(calibration.hidden, true, 'calibration should finish and hide');
+  assertEqual(countdown.hidden, false, 'countdown should then take over');
   assertEqual(countdown.textContent, '3', 'countdown should start at 3');
+  dom.window.close();
+});
 
-  await wait(1100);
-  assertEqual(countdown.textContent, '2', 'countdown should tick down to 2');
+check('calibration is theatre: it changes nothing about the schedule', async () => {
+  /* The premise of the whole tool is that failure is on a random timer
+     and never responds to the reader. If calibration ever fed into the
+     engine, that premise would be broken. */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha' }));
+  const src = fs.readFileSync(path.join(ROOT, 'teleprompter.js'), 'utf8');
+
+  const calStart = src.indexOf('function runCalibration');
+  const calEnd = src.indexOf('\n    }', calStart);
+  const body = src.slice(calStart, calEnd);
+
+  assert(body.indexOf('engine.') === -1,
+    'calibration must not touch the glitch engine');
+  assert(body.indexOf('BASE_SPEED') === -1,
+    'calibration must not alter the baseline scroll speed');
+  dom.window.close();
+});
+
+check('report card grades the reader for the mess it made', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha' }));
+  const build = dom.window.Prompter.buildReport;
+
+  const clean = build({ glitches: 0, readableMs: 10000, obscuredMs: 0, allTime: 3 });
+  assertEqual(clean.readPercent, 100, 'an uninterrupted run should read 100%');
+  assertEqual(clean.confidence, 99, 'confidence caps below certainty');
+
+  const mauled = build({ glitches: 20, readableMs: 4000, obscuredMs: 6000, allTime: 99 });
+  assertEqual(mauled.readPercent, 40, 'readable share should be 40%');
+  assert(mauled.confidence < clean.confidence, 'more glitches must lower confidence');
+  assertEqual(mauled.obscuredSeconds, 6, 'obscured time reported in seconds');
+  assertEqual(mauled.allTime, 99, 'all-time counter carried through');
+
+  /* verdict must degrade with the score, and always be non-empty */
+  assert(clean.verdict !== mauled.verdict, 'verdict should differ with score');
+  dom.window.Prompter.VERDICTS.forEach((v) => {
+    assert(v.text && v.text.length > 10, 'every verdict should be real copy');
+  });
+
+  /* never divide by zero on a run that produced no frames */
+  const empty = build({});
+  assertEqual(empty.readPercent, 0, 'a zero-length run should not produce NaN');
+  assert(empty.verdict, 'a zero-length run should still get a verdict');
+  dom.window.close();
+});
+
+check('word swap uses plausible words and is reversible', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha' }));
+  const api = dom.window.Prompter;
+
+  assert(api.SWAP_WORDS.length >= 15, 'swap bank should have some variety');
+  api.SWAP_WORDS.forEach((word) => {
+    assert(/^[a-z]+$/.test(word),
+      'swap words should be ordinary lowercase words so they read aloud ' +
+      'naturally before the reader notices, got: ' + word);
+  });
+  assert(api.GLITCH_EFFECTS.indexOf('swap') !== -1, 'swap should be a real effect');
+  assert(api.GLITCH_EFFECTS.indexOf('mirror') !== -1, 'mirror should be a real effect');
+  dom.window.close();
+});
+
+check('glitch audio degrades to a silent shim without WebAudio', async () => {
+  /* jsdom has no WebAudio, which is exactly the case that must not
+     throw - a silent browser should still get a working prompter. */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha\nbravo' }));
+  const audio = dom.window.Prompter.createGlitchAudio(dom.window);
+
+  assertEqual(audio.ok, false, 'no WebAudio available in jsdom');
+  audio.burst('static', 300);
+  audio.resume();
+
+  /* and the page itself still ran */
+  assert(dom.window.Prompter.instance.started, 'prompter should run without audio');
   dom.window.close();
 });
 
@@ -500,7 +584,7 @@ check('every declared glitch effect is reachable and safe to fire', async () => 
   const api = dom.window.Prompter;
   const engine = api.createGlitchEngine({ storage });
 
-  assertEqual(api.GLITCH_EFFECTS.length, 5, 'expected five effect types');
+  assertEqual(api.GLITCH_EFFECTS.length, 7, 'expected seven effect types');
   api.GLITCH_EFFECTS.forEach((effect) => {
     const info = engine.triggerGlitch(effect, 50);
     assertEqual(info.effect, effect, 'engine should report the effect it fired');
@@ -508,7 +592,7 @@ check('every declared glitch effect is reachable and safe to fire', async () => 
       effect + ' produced a non-numeric multiplier');
     engine.endGlitch();
   });
-  assertEqual(engine.getCount(), 5, 'each fired effect counted once');
+  assertEqual(engine.getCount(), 7, 'each fired effect counted once');
   engine.stop();
   dom.window.close();
 });
