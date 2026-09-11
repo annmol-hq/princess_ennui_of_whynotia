@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glitch Teleprompter // Reading</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="prompter">
+  <div id="stage">
+    <div id="lines"></div>
+    <div id="reading-zone"></div>
+    <div id="static-overlay"></div>
+    <div id="blank-overlay"></div>
+
+    <div id="countdown" hidden>3</div>
+
+    <div id="empty-message" hidden>
+      <h2>NOTHING TO READ</h2>
+      <p>
+        There is no script saved on this device. Go back to the setup page,
+        paste or generate something, then press PROCEED.
+      </p>
+      <a href="index.html">&larr; BACK TO SETUP</a>
+    </div>
+
+    <a id="back-link" href="index.html">&larr; setup</a>
+    <div id="betrayal-counter">BETRAYALS: <strong id="betrayal-value">0</strong></div>
+  </div>
+
+  <script src="teleprompter.js"></script>
+</body>
+</html>

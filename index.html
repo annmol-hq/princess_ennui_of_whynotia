@@ -1,1 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glitch Teleprompter // Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="setup-wrap">
+    <header class="setup-head">
+      <h1>GLITCH TELEPROMPTER</h1>
+      <p>Paste your script. It saves as you type. It will not help you read it.</p>
+    </header>
 
+    <div class="setup-body">
+      <textarea id="script-input"
+                placeholder="Paste or type your script here.&#10;&#10;Every line becomes one glowing bar on the prompter."
+                spellcheck="false"></textarea>
+
+      <aside class="topic-panel">
+        <h2>Nothing to say?</h2>
+        <div id="topic-display">- - - - -</div>
+        <button id="roll-topic">ROLL A TOPIC</button>
+
+        <div class="format-row" id="format-row" hidden>
+          <button class="format-btn" data-format="speech">Speech</button>
+          <button class="format-btn" data-format="note">Note</button>
+          <button class="format-btn" data-format="paragraph">Paragraph</button>
+        </div>
+
+        <p class="panel-hint">
+          Generated text is <strong>appended</strong> to the end of your script,
+          so nothing you already wrote gets destroyed. Generate again for a
+          different take &mdash; the templates are randomized every press.
+        </p>
+      </aside>
+    </div>
+
+    <footer class="setup-foot">
+      <span id="save-state">&nbsp;</span>
+      <button id="proceed">PROCEED &rarr;</button>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
