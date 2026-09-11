@@ -31,24 +31,36 @@
      everything they had left to read. */
   var MAX_BURST_TRAVEL_RATIO = 0.6;
 
+  /* Where the first line sits when the countdown ends, as a fraction of
+     viewport height. 0.5 drops it straight into the reading zone, so
+     there is no free run-up: at 0.9 the script rose from below the fold
+     and handed the reader several unhindered seconds before the dimming
+     even started. */
+  var START_Y_RATIO = 0.5;
+
   /* ---------- canvas grain ---------- */
 
   /* A handful of small noise tiles, rendered once at startup and then
      cycled during a glitch. Repeating one tile across the viewport is
      vastly cheaper than painting every screen pixel per frame, and
      swapping which tile is showing hides the fact that it repeats. */
-  var NOISE_TILE_SIZE = 96;
-  var NOISE_TILE_COUNT = 5;
+  var NOISE_TILE_SIZE = 128;
+  var NOISE_TILE_COUNT = 6;
 
-  /* Slight magenta bias so the grain belongs to the same palette as
-     the glow rather than reading as neutral TV snow. */
-  var NOISE_GREEN_BIAS = 0.62;
+  /* Only a faint magenta cast. Pushed near neutral on purpose: a heavy
+     tint reads as a coloured veil, whereas real signal-loss snow is
+     close to grey. */
+  var NOISE_GREEN_BIAS = 0.86;
 
-  /* Fraction of pixels left fully transparent. Kept low: the grain has
-     to physically cover glyphs to interfere with reading. A sparse,
-     screen-blended version looked like static but could not obscure
-     anything, because screen blending only ever lightens. */
-  var NOISE_SPARSITY = 0.3;
+  /* Fraction of pixels left fully transparent. Zero: this is meant to
+     be total signal loss, so the tile is fully opaque and the text
+     behind it disappears completely for the length of the glitch. */
+  var NOISE_SPARSITY = 0;
+
+  /* Full black-to-white range. Clamping the floor up made the field
+     uniformly mid-bright, which the stage's glitch filter then pushed
+     into a flat pastel wash. Real snow needs its blacks. */
+  var NOISE_MIN_LUMA = 0;
 
   /* Returns an array of data-URI strings, or an empty array where
      canvas is unavailable (jsdom, very old browsers), in which case the
@@ -74,14 +86,12 @@
         var img = ctx.createImageData(px, px);
         var data = img.data;
         for (var i = 0; i < data.length; i += 4) {
-          var v = (random() * 255) | 0;
+          var v = NOISE_MIN_LUMA + ((random() * (255 - NOISE_MIN_LUMA)) | 0);
           data[i] = v;
           data[i + 1] = (v * NOISE_GREEN_BIAS) | 0;
           data[i + 2] = v;
-          /* Mostly opaque, so the tile lands ON TOP of the glyphs and
-             genuinely breaks them up, with a minority punched out to
-             keep it reading as noise rather than a solid panel. */
-          data[i + 3] = random() < NOISE_SPARSITY ? 0 : 100 + ((random() * 130) | 0);
+          /* Fully opaque: total signal loss, nothing shows through. */
+          data[i + 3] = random() < NOISE_SPARSITY ? 0 : 255;
         }
         ctx.putImageData(img, 0, 0);
         tiles.push(canvas.toDataURL('image/png'));
@@ -345,7 +355,7 @@
     var totalHeight = cursor;
 
     var offset = 0;
-    var startY = viewH * 0.9; /* first line begins just below the fold */
+    var startY = viewH * START_Y_RATIO;
     var lastTs = null;
     var finished = false;
 
@@ -400,7 +410,7 @@
 
       if (!noiseTiles.length) { return; }
       jitterTick++;
-      if (jitterTick % 3 === 0) {
+      if (jitterTick % 2 === 0) {
         tileCursor = (tileCursor + 1 + Math.floor(Math.random() * (noiseTiles.length - 1))) %
           noiseTiles.length;
         staticEl.style.backgroundImage = 'url(' + noiseTiles[tileCursor] + ')';

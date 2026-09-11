@@ -92,19 +92,18 @@ churn through block-shade glyphs, so the topic resolves out of visible corruptio
 than simply appearing.*
 
 ![The inverted brightness rule](screenshots/4-inverted-brightness.jpg)
-*The core mechanic, and the whole joke. The reading zone sits between the two faint
-horizontal rules, and the line inside it is rendered at 0.26 opacity while the lines above
-and below climb to 1.0. Measured at this exact frame: 0.26 at 40px from the zone centre,
-0.46 at 102px, 0.79 at 203px, 1.0 at 449px. Backwards from every real teleprompter, on
-purpose.*
+*The core mechanic, and the whole joke, shown at the very first frame after the countdown.
+The reading zone sits between the two faint horizontal rules, and the script starts with
+its first line already inside it, dim and hard to focus on, while the lines below it glow
+brightly. There is no gentle run-up from the bottom of the screen: you are behind from the
+moment it begins. Backwards from every real teleprompter, on purpose.*
 
 ![Glitch firing](screenshots/5-static-glitch.jpg)
-*A static glitch held open. The grain is real pixel noise, composited over the text rather
-than screen-blended, so it genuinely breaks the glyphs up instead of merely tinting them:
-the lines in the reading zone are close to illegible here. Five 96px tiles are rendered to
-an offscreen canvas once at startup and then cycled and re-offset per frame, costing about
-30ms at load and no pixel work while running. The betrayal counter in the bottom right
-persists across sessions.*
+*A static glitch held open, and yes, that is the whole screen. The grain is full
+signal-loss television snow: opaque pixel noise across the full black-to-white range,
+composited over the text so nothing shows through for the length of the burst. Six 128px
+tiles are rendered to an offscreen canvas once at startup, then cycled every other frame
+and re-offset, costing about 38ms at load and no pixel work while running.*
 
 ![Empty state](screenshots/6-empty-state.jpg)
 *With no script saved, the prompter explains itself and offers a way back instead of

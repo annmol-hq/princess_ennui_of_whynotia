@@ -238,7 +238,7 @@ body.prompter { overflow: hidden; height: 100vh; }
      grain sit on top of the text and actually break it up. */
 }
 
-#static-overlay.active { opacity: 0.6; }
+#static-overlay.active { opacity: 1; }
 
 #blank-overlay {
   position: absolute;
@@ -272,7 +272,7 @@ body.prompter { overflow: hidden; height: 100vh; }
 }
 
 #stage.glitching {
-  filter: contrast(1.9) brightness(1.35) saturate(1.4);
+  filter: contrast(1.45) brightness(1.05) saturate(1.15);
   animation: stage-shake 110ms steps(2, end) infinite;
 }
 

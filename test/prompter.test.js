@@ -599,7 +599,7 @@ check('weighted picker favours the disorienting effects', async () => {
   dom.window.close();
 });
 
-check('grain is opaque enough to obscure text, not just tint it', async () => {
+check('grain is full signal-loss static, not a translucent veil', async () => {
   const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
   const api = dom.window.Prompter;
 
@@ -623,17 +623,30 @@ check('grain is opaque enough to obscure text, not just tint it', async () => {
     total++;
     if (data[i + 3] > 120) { opaque++; }
   }
-  /* A band, not a floor. Too transparent and the grain only tints the
-     glow without hindering reading; too opaque and the screen goes
-     fully black, which erases the text instead of fighting it. Both
-     failure modes have happened in this build. */
+  /* Deliberately total. The overlay is meant to read as a television
+     losing signal, so nothing shows through for the length of the
+     glitch - an earlier translucent version merely tinted the glow. */
   const coverage = opaque / total;
-  assert(coverage > 0.45,
-    'grain must be opaque enough to break up glyphs, got ' +
-    (coverage * 100).toFixed(1) + '%');
-  assert(coverage < 0.8,
-    'grain must not be so opaque it blacks the screen out, got ' +
-    (coverage * 100).toFixed(1) + '%');
+  assertEqual(coverage, 1, 'every grain pixel should be fully opaque');
+
+  /* Full dynamic range, centred. Television snow is high-contrast
+     black-to-white; clamping the floor up produced a uniformly
+     mid-bright field that the glitch filter washed out to pastel. */
+  let lumaSum = 0;
+  let darkest = 255;
+  let brightest = 0;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    lumaSum += data[i];
+    darkest = Math.min(darkest, data[i]);
+    brightest = Math.max(brightest, data[i]);
+    n++;
+  }
+  const meanLuma = lumaSum / n;
+  assert(meanLuma > 100 && meanLuma < 165,
+    'snow should sit mid-range, mean luminance was ' + meanLuma.toFixed(0));
+  assert(darkest < 30, 'snow needs near-black pixels, darkest was ' + darkest);
+  assert(brightest > 225, 'snow needs near-white pixels, brightest was ' + brightest);
   dom.window.close();
 });
 
@@ -712,13 +725,21 @@ check('noise pixels are actually randomized, not a flat fill', async () => {
 
   const data = captured.data;
   const reds = new Set();
-  const alphas = new Set();
+  let neighbourDiff = 0;
+  let prev = null;
   for (let i = 0; i < data.length; i += 4) {
     reds.add(data[i]);
-    alphas.add(data[i + 3]);
+    if (prev !== null) { neighbourDiff += Math.abs(data[i] - prev); }
+    prev = data[i];
   }
-  assert(reds.size > 20, 'red channel should take many distinct values, got ' + reds.size);
-  assert(alphas.size > 20, 'alpha should vary to produce speckle, got ' + alphas.size);
+  assert(reds.size > 20, 'luminance should take many distinct values, got ' + reds.size);
+
+  /* Adjacent pixels must differ sharply. A smooth gradient would also
+     produce many distinct values while looking nothing like snow. */
+  const avgNeighbourDiff = neighbourDiff / (data.length / 4 - 1);
+  assert(avgNeighbourDiff > 30,
+    'adjacent pixels should differ sharply to read as snow, average delta ' +
+    avgNeighbourDiff.toFixed(1));
   dom.window.close();
 });
 
