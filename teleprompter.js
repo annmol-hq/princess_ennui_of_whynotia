@@ -26,6 +26,11 @@
 
   var FALLBACK_LINE_HEIGHT = 62;
 
+  /* Ceiling on how far one glitch may drag the script, as a fraction of
+     viewport height. Stops a fast burst from skipping the reader past
+     everything they had left to read. */
+  var MAX_BURST_TRAVEL_RATIO = 0.6;
+
   /* ---------- canvas grain ---------- */
 
   /* A handful of small noise tiles, rendered once at startup and then
@@ -144,15 +149,20 @@
      reader's place, so they carry the most weight. */
   var GLITCH_WEIGHTS = { speed: 32, blank: 23, static: 19, freeze: 14, reverse: 12 };
 
-  /* Aggressive by design. At these numbers roughly 40% of any given
-     second is spent mid-glitch, which is the point of the tool: an
-     earlier build sat near a 10% duty cycle and was comfortable enough
-     to read a whole paragraph through. */
+  /* The delay is measured from the END of one glitch to the START of
+     the next, so minDelay is a guaranteed floor of undisturbed reading.
+     Keep it at or above 2s: a build with sub-second gaps and violent
+     speed bursts chewed through an entire script in the first three
+     seconds and then sat at the end with nothing left to scroll.
+
+     Glitches still need to bite, so duration stays long relative to the
+     gap - this lands near a 20% duty cycle, roughly one interruption
+     every three to five seconds. */
   var GLITCH_DEFAULTS = {
-    minDelay: 450,
-    maxDelay: 2300,
-    minDuration: 420,
-    maxDuration: 1750
+    minDelay: 2200,
+    maxDelay: 4300,
+    minDuration: 320,
+    maxDuration: 1150
   };
 
   /* A scheduler that fires at random intervals. It never touches the
@@ -178,11 +188,12 @@
     function between(lo, hi) { return lo + random() * (hi - lo); }
 
     function multiplierFor(effect) {
-      /* fast enough to throw the reader several lines past their place,
-         not merely "a bit quick" */
-      if (effect === 'speed') { return between(9, 22); }
+      /* Enough to throw the reader a few lines past their place, but
+         bounded: at 20x a single burst outran an entire short script.
+         See MAX_BURST_TRAVEL for the hard stop that backs this up. */
+      if (effect === 'speed') { return between(5, 9); }
       if (effect === 'freeze') { return 0; }
-      if (effect === 'reverse') { return -between(2.5, 5.5); }
+      if (effect === 'reverse') { return -between(1.5, 3.2); }
       return 1; /* static and blank are visual only */
     }
 
@@ -207,7 +218,8 @@
     function durationFor(effect) {
       var d = between(minDuration, maxDuration);
       if (effect === 'blank') { return d * 0.45; }
-      if (effect === 'speed') { return d * 1.15; }
+      /* short and punchy: a long fast burst is just a fast-forward */
+      if (effect === 'speed') { return d * 0.7; }
       return d;
     }
 
@@ -337,6 +349,10 @@
     var lastTs = null;
     var finished = false;
 
+    /* no single glitch may drag the script more than this far */
+    var maxBurstTravel = viewH * MAX_BURST_TRAVEL_RATIO;
+    var burstTravel = 0;
+
     var engine = createGlitchEngine({
       onStart: function (info) {
         if (stage) { stage.classList.add('glitching'); }
@@ -349,6 +365,7 @@
         jitterStatic();
       },
       onEnd: function () {
+        burstTravel = 0; /* each glitch gets its own travel budget */
         if (stage) { stage.classList.remove('glitching'); }
         if (staticEl) { staticEl.classList.remove('active'); }
         if (blankEl) { blankEl.classList.remove('active'); }
@@ -418,7 +435,18 @@
       lastTs = ts;
 
       /* baseline * sabotage multiplier - the baseline is never rewritten */
-      offset += BASE_SPEED * engine.getMultiplier() * dt;
+      var delta = BASE_SPEED * engine.getMultiplier() * dt;
+
+      /* Hard ceiling on how far any one glitch may drag the script.
+         Tuning alone is not enough: a fast burst that runs slightly long
+         can otherwise skip past everything the reader had left. */
+      if (engine.isActive() && delta > 0) {
+        var remaining = maxBurstTravel - burstTravel;
+        if (delta > remaining) { delta = remaining > 0 ? remaining : 0; }
+        burstTravel += delta;
+      }
+
+      offset += delta;
       if (offset < 0) { offset = 0; }
 
       if (engine.isActive()) { jitterStatic(); }
@@ -498,6 +526,7 @@
     GLITCH_EFFECTS: GLITCH_EFFECTS,
     GLITCH_WEIGHTS: GLITCH_WEIGHTS,
     GLITCH_DEFAULTS: GLITCH_DEFAULTS,
+    MAX_BURST_TRAVEL_RATIO: MAX_BURST_TRAVEL_RATIO,
     NOISE_TILE_SIZE: NOISE_TILE_SIZE,
     NOISE_TILE_COUNT: NOISE_TILE_COUNT,
     makeNoiseTiles: makeNoiseTiles,

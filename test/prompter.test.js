@@ -513,44 +513,66 @@ check('every declared glitch effect is reachable and safe to fire', async () => 
   dom.window.close();
 });
 
-check('glitches are dense enough to be genuinely disruptive', async () => {
-  /* A previous build sat near a 10% duty cycle and was comfortable
-     enough to read a whole paragraph through, which defeats the tool.
-     This pins the tuning so it cannot quietly drift back. */
+check('every glitch is followed by a real stretch of normal reading', async () => {
+  /* Two failure modes bracket this. Too sparse (an early build averaged
+     a 6.25s gap against a 680ms glitch) and a whole paragraph reads
+     comfortably. Too dense (sub-second gaps) and there is never a calm
+     moment to be interrupted from - the reader just sees chaos. */
   const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
   const d = dom.window.Prompter.GLITCH_DEFAULTS;
+
+  assert(d.minDelay >= 2000,
+    'there must be a guaranteed floor of >=2s of undisturbed reading ' +
+    'between glitches, got ' + d.minDelay + 'ms');
 
   const avgGap = (d.minDelay + d.maxDelay) / 2;
   const avgDuration = (d.minDuration + d.maxDuration) / 2;
   const dutyCycle = avgDuration / (avgGap + avgDuration);
 
-  assert(dutyCycle > 0.3,
-    'at least 30% of reading time should be mid-glitch, got ' +
+  assert(avgGap >= 2500 && avgGap <= 5000,
+    'average calm stretch should sit between 2.5s and 5s, got ' + avgGap + 'ms');
+  assert(dutyCycle > 0.12,
+    'glitches must still bite: >12% of time mid-glitch, got ' +
     (dutyCycle * 100).toFixed(1) + '%');
-  assert(avgGap < 2000,
-    'average quiet gap must stay under 2s, got ' + avgGap + 'ms');
+  assert(dutyCycle < 0.32,
+    'but not so constant there is no calm to disrupt, got ' +
+    (dutyCycle * 100).toFixed(1) + '%');
   dom.window.close();
 });
 
-check('speed bursts are fast enough to lose your place', async () => {
+check('a speed burst cannot outrun the whole script', async () => {
+  /* The bug this pins: at 9-22x for up to 1.75s a single burst travelled
+     ~2000px, more than an entire short script, so the prompter hit the
+     end within seconds of starting. */
   const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
   const api = dom.window.Prompter;
   const engine = api.createGlitchEngine({ storage: makeStorage() });
 
-  /* sample the burst speed a few times, it is randomized per event */
-  let min = Infinity;
-  for (let i = 0; i < 40; i++) {
-    engine.triggerGlitch('speed', 50);
-    min = Math.min(min, engine.getMultiplier());
+  let minMult = Infinity;
+  let maxMult = -Infinity;
+  let maxTravel = 0;
+  for (let i = 0; i < 400; i++) {
+    const info = engine.triggerGlitch('speed');
+    const m = engine.getMultiplier();
+    minMult = Math.min(minMult, m);
+    maxMult = Math.max(maxMult, m);
+    maxTravel = Math.max(maxTravel, api.BASE_SPEED * m * (info.duration / 1000));
     engine.endGlitch();
   }
-  assert(min >= 8, 'even the mildest speed burst should be >=8x, got ' + min.toFixed(1) + 'x');
 
-  /* at base speed, one second of the slowest burst should cover
-     several lines rather than a fraction of one */
-  const pxPerSecond = api.BASE_SPEED * min;
-  assert(pxPerSecond > 300,
-    'a speed burst should move >300px/s, got ' + pxPerSecond.toFixed(0) + 'px/s');
+  assert(minMult >= 4,
+    'a speed burst should still be clearly faster than normal, got ' +
+    minMult.toFixed(1) + 'x');
+  assert(maxMult <= 12,
+    'speed bursts must stay bounded, got ' + maxMult.toFixed(1) + 'x');
+  assert(maxTravel < 420,
+    'worst-case single burst should travel <420px (a few lines), got ' +
+    maxTravel.toFixed(0) + 'px');
+
+  /* and a hard ceiling backs the tuning up regardless */
+  assert(api.MAX_BURST_TRAVEL_RATIO > 0 && api.MAX_BURST_TRAVEL_RATIO <= 0.75,
+    'per-glitch travel cap should be a sane fraction of the viewport, got ' +
+    api.MAX_BURST_TRAVEL_RATIO);
   engine.stop();
   dom.window.close();
 });
