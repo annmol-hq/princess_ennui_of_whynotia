@@ -709,6 +709,33 @@ check('weighted picker favours the disorienting effects', async () => {
   dom.window.close();
 });
 
+check('most glitches produce an unmistakable full-screen event', async () => {
+  /* The regression this guards: freeze, reverse, swap and mirror are all
+     quiet. Adding swap and mirror pushed the quiet share to 39%, and a
+     real read-through came back as "only a shaking effect" because the
+     stage shake was the sole evidence most glitches left behind. */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
+  const api = dom.window.Prompter;
+  const engine = api.createGlitchEngine({ storage: makeStorage() });
+
+  let loud = 0;
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
+    const info = engine.triggerGlitch();
+    const shows = info.effect === 'blank' || info.effect === 'static' ||
+      info.visual === 'blank' || info.visual === 'static';
+    if (shows) { loud++; }
+    engine.endGlitch();
+  }
+  const share = loud / N;
+
+  assert(share > 0.78,
+    'at least ~80% of glitches should blank or snow the screen, got ' +
+    (share * 100).toFixed(1) + '%');
+  engine.stop();
+  dom.window.close();
+});
+
 check('grain is full signal-loss static, not a translucent veil', async () => {
   const dom = await prompterPage(makeStorage({ 'prompter-script': 'x' }));
   const api = dom.window.Prompter;

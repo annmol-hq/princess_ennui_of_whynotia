@@ -271,9 +271,15 @@
 
   /* Not uniform. Speed and blank are the two that actually break a
      reader's place, so they carry the most weight. */
+  /* Heavily skewed toward the three effects a reader cannot miss.
+     freeze, reverse, swap and mirror are all quiet - if you are not
+     looking for them, the shake and the filter are the only evidence a
+     glitch happened at all. At 39% combined they were swallowing most
+     of the budget and the prompter read as "a bit shaky". Kept as
+     garnish only. */
   var GLITCH_WEIGHTS = {
-    speed: 26, blank: 19, static: 16, freeze: 11,
-    reverse: 10, swap: 12, mirror: 6
+    blank: 27, static: 27, speed: 24,
+    freeze: 8, reverse: 7, swap: 5, mirror: 2
   };
 
   /* Substitutions for the word-swap glitch. The joke only lands if the
@@ -296,8 +302,8 @@
      gap - this lands near a 20% duty cycle, roughly one interruption
      every three to five seconds. */
   var GLITCH_DEFAULTS = {
-    minDelay: 2100,
-    maxDelay: 2900,
+    minDelay: 2000,
+    maxDelay: 2700,
     minDuration: 1900,
     maxDuration: 5000
   };
@@ -360,7 +366,7 @@
       /* Enough to throw the reader a few lines past their place, but
          bounded: at 20x a single burst outran an entire short script.
          See MAX_BURST_TRAVEL for the hard stop that backs this up. */
-      if (effect === 'speed') { return between(5, 9); }
+      if (effect === 'speed') { return between(6, 11); }
       if (effect === 'freeze') { return 0; }
       if (effect === 'reverse') { return -between(1.5, 3.2); }
       return 1; /* static and blank are visual only */
@@ -395,11 +401,14 @@
       var effect = forcedEffect || pickEffect();
       var duration = forcedDuration || durationFor(effect);
 
-      /* Usually stack a visual on top of a motion effect, so a speed
-         burst also blinds you rather than merely moving fast. */
+      /* Nearly always stack a visual on the motion effects, so a speed
+         burst blinds you as well as moving. Without this, freeze and
+         reverse in particular pass unnoticed. swap and mirror are
+         deliberately excluded: both only land if the reader can
+         actually see the text. */
       var visual = null;
-      if ((effect === 'speed' || effect === 'freeze' || effect === 'reverse') && random() < 0.72) {
-        visual = random() < 0.6 ? 'static' : 'blank';
+      if ((effect === 'speed' || effect === 'freeze' || effect === 'reverse') && random() < 0.85) {
+        visual = random() < 0.5 ? 'static' : 'blank';
       }
 
       active = true;
