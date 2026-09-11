@@ -98,10 +98,11 @@ and below climb to 1.0. Measured at this exact frame: 0.26 at 40px from the zone
 purpose.*
 
 ![Glitch firing](screenshots/5-static-glitch.jpg)
-*A static glitch held open. The sabotage layer has fired, dropping a grain overlay and a
-contrast flicker over the whole stage. Note the betrayal counter in the bottom right,
-which persists across sessions, and that the inversion still holds during a glitch: the
-fourth line is the dim one because it is the one in the reading zone.*
+*A static glitch held open. The grain is real pixel noise: five 96px tiles are rendered to
+an offscreen canvas once at startup and then cycled and re-offset per frame, which costs
+about 30ms at load and no pixel work at all while running. Note the betrayal counter in
+the bottom right, which persists across sessions, and that the inversion still holds
+during a glitch: the middle lines are the dim ones because they are in the reading zone.*
 
 ![Empty state](screenshots/6-empty-state.jpg)
 *With no script saved, the prompter explains itself and offers a way back instead of

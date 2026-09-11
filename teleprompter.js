@@ -26,6 +26,65 @@
 
   var FALLBACK_LINE_HEIGHT = 62;
 
+  /* ---------- canvas grain ---------- */
+
+  /* A handful of small noise tiles, rendered once at startup and then
+     cycled during a glitch. Repeating one tile across the viewport is
+     vastly cheaper than painting every screen pixel per frame, and
+     swapping which tile is showing hides the fact that it repeats. */
+  var NOISE_TILE_SIZE = 96;
+  var NOISE_TILE_COUNT = 5;
+
+  /* Slight magenta bias so the grain belongs to the same palette as
+     the glow rather than reading as neutral TV snow. */
+  var NOISE_GREEN_BIAS = 0.62;
+
+  /* Fraction of pixels left fully transparent. Without this the tile
+     averages ~50% alpha, which lifts the near-black background into a
+     flat purple haze instead of reading as speckle. */
+  var NOISE_SPARSITY = 0.62;
+
+  /* Returns an array of data-URI strings, or an empty array where
+     canvas is unavailable (jsdom, very old browsers), in which case the
+     CSS gradient fallback in the stylesheet stays in place. */
+  function makeNoiseTiles(doc, size, count, rand) {
+    var d = doc || global.document;
+    var px = size || NOISE_TILE_SIZE;
+    var n = count || NOISE_TILE_COUNT;
+    var random = rand || Math.random;
+    var tiles = [];
+
+    for (var t = 0; t < n; t++) {
+      var canvas = d.createElement('canvas');
+      if (!canvas || typeof canvas.getContext !== 'function') { return []; }
+      canvas.width = px;
+      canvas.height = px;
+
+      var ctx;
+      try { ctx = canvas.getContext('2d'); } catch (e) { return []; }
+      if (!ctx || typeof ctx.createImageData !== 'function') { return []; }
+
+      try {
+        var img = ctx.createImageData(px, px);
+        var data = img.data;
+        for (var i = 0; i < data.length; i += 4) {
+          var v = (random() * 255) | 0;
+          data[i] = v;
+          data[i + 1] = (v * NOISE_GREEN_BIAS) | 0;
+          data[i + 2] = v;
+          /* most pixels punched out entirely, the rest at uneven alpha:
+             that combination is what reads as speckle rather than wash */
+          data[i + 3] = random() < NOISE_SPARSITY ? 0 : (random() * 255) | 0;
+        }
+        ctx.putImageData(img, 0, 0);
+        tiles.push(canvas.toDataURL('image/png'));
+      } catch (e) {
+        return [];
+      }
+    }
+    return tiles;
+  }
+
   /* ---------- the inverted brightness rule ---------- */
 
   /* distance = |line centre - reading zone centre|, in pixels.
@@ -254,12 +313,36 @@
       }
     });
 
-    /* cheap CSS-only grain: nudge the gradient origin every frame the
-       glitch is live, which reads as static without a canvas */
+    /* Generated once, not per frame. Empty where canvas is unavailable,
+       in which case the stylesheet's gradient fallback stays. */
+    var noiseTiles = makeNoiseTiles(d, NOISE_TILE_SIZE, NOISE_TILE_COUNT);
+    var tileCursor = 0;
+    var jitterTick = 0;
+
+    if (noiseTiles.length && staticEl) {
+      staticEl.style.backgroundSize = NOISE_TILE_SIZE + 'px ' + NOISE_TILE_SIZE + 'px';
+      /* bind one immediately so the very first glitch is already grainy
+         rather than showing the gradient fallback for a few frames */
+      staticEl.style.backgroundImage = 'url(' + noiseTiles[0] + ')';
+    }
+
+    /* Runs every frame a glitch is live. Repositioning is cheap, so it
+       happens every frame; swapping the tile is throttled because it
+       forces a new image to be bound. */
     function jitterStatic() {
       if (!staticEl) { return; }
+
       staticEl.style.backgroundPosition =
-        Math.floor(Math.random() * 40) + 'px ' + Math.floor(Math.random() * 40) + 'px';
+        Math.floor(Math.random() * NOISE_TILE_SIZE) + 'px ' +
+        Math.floor(Math.random() * NOISE_TILE_SIZE) + 'px';
+
+      if (!noiseTiles.length) { return; }
+      jitterTick++;
+      if (jitterTick % 3 === 0) {
+        tileCursor = (tileCursor + 1 + Math.floor(Math.random() * (noiseTiles.length - 1))) %
+          noiseTiles.length;
+        staticEl.style.backgroundImage = 'url(' + noiseTiles[tileCursor] + ')';
+      }
     }
 
     function render() {
@@ -368,6 +451,9 @@
     MIN_BRIGHTNESS: MIN_BRIGHTNESS,
     MAX_BRIGHTNESS: MAX_BRIGHTNESS,
     GLITCH_EFFECTS: GLITCH_EFFECTS,
+    NOISE_TILE_SIZE: NOISE_TILE_SIZE,
+    NOISE_TILE_COUNT: NOISE_TILE_COUNT,
+    makeNoiseTiles: makeNoiseTiles,
     computeBrightness: computeBrightness,
     createGlitchEngine: createGlitchEngine,
     loadBetrayalCount: loadBetrayalCount,

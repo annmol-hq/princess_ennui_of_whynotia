@@ -7,7 +7,19 @@
 
 const fs = require('fs');
 const path = require('path');
-const { JSDOM } = require('jsdom');
+const { JSDOM, VirtualConsole } = require('jsdom');
+
+/* jsdom has no canvas backend, so the noise-tile generator's degraded
+   path logs a known jsdomError. Silence that one message only - every
+   other error still surfaces, so a real page fault is not hidden. */
+function quietConsole() {
+  const vc = new VirtualConsole();
+  vc.on('jsdomError', (err) => {
+    if (/Not implemented: HTMLCanvasElement/.test(err.message)) { return; }
+    console.error('  jsdom error: ' + err.message);
+  });
+  return vc;
+}
 
 const ROOT = path.join(__dirname, '..');
 
@@ -69,6 +81,7 @@ async function loadPage(file, storage, scripts) {
     runScripts: 'dangerously',
     url: 'http://localhost/' + file,
     pretendToBeVisual: true,
+    virtualConsole: quietConsole(),
     beforeParse(window) {
       Object.defineProperty(window, 'localStorage', { value: storage, configurable: true });
     }
@@ -497,6 +510,91 @@ check('every declared glitch effect is reachable and safe to fire', async () => 
   });
   assertEqual(engine.getCount(), 5, 'each fired effect counted once');
   engine.stop();
+  dom.window.close();
+});
+
+check('noise tiles degrade to the CSS fallback where canvas is missing', async () => {
+  /* jsdom has no canvas backend, which is exactly the degraded case the
+     generator has to survive without throwing */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha\nbravo' }));
+  const api = dom.window.Prompter;
+
+  const tiles = api.makeNoiseTiles(dom.window.document, 8, 2);
+  assert(Array.isArray(tiles), 'makeNoiseTiles must always return an array');
+  assertEqual(tiles.length, 0, 'no canvas backend should yield no tiles, not a crash');
+
+  /* the page must still have started and still glitch normally */
+  const instance = dom.window.Prompter.instance;
+  assert(instance && instance.started, 'prompter should still run without canvas');
+  instance.engine.triggerGlitch('static', 50);
+  assertEqual(dom.window.document.getElementById('static-overlay').classList.contains('active'),
+    true, 'static glitch should still activate the overlay via the CSS fallback');
+  instance.engine.endGlitch();
+  instance.engine.stop();
+  dom.window.close();
+});
+
+check('noise tile generator produces distinct tiles when canvas works', async () => {
+  /* drive the pure generator with a stubbed canvas so the real pixel
+     loop is exercised without needing a canvas backend */
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha' }));
+  const api = dom.window.Prompter;
+
+  let created = 0;
+  const fakeDoc = {
+    createElement() {
+      created++;
+      let w = 0, h = 0;
+      return {
+        set width(v) { w = v; }, get width() { return w; },
+        set height(v) { h = v; }, get height() { return h; },
+        getContext() {
+          return {
+            createImageData: (x, y) => ({ data: new Uint8ClampedArray(x * y * 4) }),
+            putImageData(img) { this._last = img; }
+          };
+        },
+        toDataURL: () => 'data:image/png;base64,TILE' + created
+      };
+    }
+  };
+
+  const tiles = api.makeNoiseTiles(fakeDoc, 4, 3);
+  assertEqual(tiles.length, 3, 'should produce the requested number of tiles');
+  assertEqual(new Set(tiles).size, 3, 'tiles should be distinct from one another');
+  tiles.forEach((t) => assert(t.indexOf('data:image/png') === 0,
+    'tile should be a png data URI, got: ' + t));
+  dom.window.close();
+});
+
+check('noise pixels are actually randomized, not a flat fill', async () => {
+  const dom = await prompterPage(makeStorage({ 'prompter-script': 'alpha' }));
+  const api = dom.window.Prompter;
+
+  let captured = null;
+  const fakeDoc = {
+    createElement: () => ({
+      width: 0, height: 0,
+      getContext: () => ({
+        createImageData: (x, y) => ({ data: new Uint8ClampedArray(x * y * 4) }),
+        putImageData(img) { captured = img; }
+      }),
+      toDataURL: () => 'data:image/png;base64,X'
+    })
+  };
+
+  api.makeNoiseTiles(fakeDoc, 16, 1);
+  assert(captured, 'putImageData should have been called with pixel data');
+
+  const data = captured.data;
+  const reds = new Set();
+  const alphas = new Set();
+  for (let i = 0; i < data.length; i += 4) {
+    reds.add(data[i]);
+    alphas.add(data[i + 3]);
+  }
+  assert(reds.size > 20, 'red channel should take many distinct values, got ' + reds.size);
+  assert(alphas.size > 20, 'alpha should vary to produce speckle, got ' + alphas.size);
   dom.window.close();
 });
 

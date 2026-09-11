@@ -199,6 +199,11 @@ body.prompter { overflow: hidden; height: 100vh; }
 }
 
 /* Grainy / static overlay - CSS-only approximation */
+/* Grain. The gradients below are only a fallback for browsers where
+   canvas is unavailable; teleprompter.js replaces background-image at
+   runtime with pre-rendered pixel-noise tiles, which look far less
+   regular. Tiles are generated once at startup and then cycled, so the
+   per-frame cost stays near zero. */
 #static-overlay {
   position: absolute;
   inset: -20%;
@@ -207,10 +212,11 @@ body.prompter { overflow: hidden; height: 100vh; }
   background-image:
     repeating-linear-gradient(0deg, rgba(255,255,255,0.13) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(90deg, rgba(214,70,239,0.10) 0 1px, transparent 1px 4px);
+  background-repeat: repeat;
   mix-blend-mode: screen;
 }
 
-#static-overlay.active { opacity: 1; }
+#static-overlay.active { opacity: 0.85; }
 
 #blank-overlay {
   position: absolute;
