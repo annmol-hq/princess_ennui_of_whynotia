@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glitch Teleprompter // Cover</title>
+  <!-- styles.css carries the embedded Share Tech Mono and the palette variables -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ============================================================
+       Cover card. Sized 1280x640 so a screenshot drops straight in
+       as the README banner, but it scales down to fit any window.
+       ============================================================ */
+    html, body {
+      height: 100%;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #05020a;
+    }
+
+    #cover {
+      position: relative;
+      width: 1280px;
+      height: 640px;
+      flex: none;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(214, 70, 239, 0.14), transparent 62%),
+        var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 26px;
+      /* shrink to fit smaller windows without reflowing the layout */
+      transform: scale(var(--fit, 1));
+      transform-origin: center center;
+    }
+
+    /* scanlines + a faint drifting grain, same family as the prompter */
+    #cover::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px);
+      animation: cover-drift 5s steps(3, end) infinite;
+    }
+
+    @keyframes cover-drift {
+      0%   { background-position: 0 0; }
+      50%  { background-position: 0 2px; }
+      100% { background-position: 0 0; }
+    }
+
+    .eyebrow {
+      font-size: 14px;
+      letter-spacing: 7px;
+      color: var(--dim-ink);
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 76px;
+      line-height: 1;
+      letter-spacing: 7px;
+      color: var(--accent);
+      text-shadow:
+        0 0 3px currentColor,
+        0 0 9px currentColor,
+        0 0 26px rgba(214, 70, 239, 0.6);
+      position: relative;
+    }
+
+    /* chromatic split, sitting under the real text */
+    h1::before,
+    h1::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      text-shadow: none;
+    }
+    h1::before {
+      color: #3ef2ff;
+      transform: translate(-6px, 2px);
+      opacity: 0.9;
+      text-shadow: 0 0 10px #3ef2ff;
+    }
+    h1::after {
+      color: #ff2d6f;
+      transform: translate(6px, -2px);
+      opacity: 0.9;
+      text-shadow: 0 0 10px #ff2d6f;
+    }
+
+    .tagline {
+      margin: 0;
+      font-size: 21px;
+      letter-spacing: 3px;
+      color: var(--ink);
+      opacity: 0.85;
+    }
+
+    /* ---- the mechanic, shown rather than explained ---- */
+
+    .demo {
+      position: relative;
+      width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-top: 6px;
+    }
+
+    .reading-band {
+      position: absolute;
+      left: -40px;
+      right: -40px;
+      top: 50%;
+      height: 62px;
+      transform: translateY(-50%);
+      border-top: 1px solid rgba(214, 70, 239, 0.3);
+      border-bottom: 1px solid rgba(214, 70, 239, 0.3);
+    }
+
+    .bar {
+      padding: 10px 26px;
+      border-radius: 999px;
+      background: rgba(214, 70, 239, 0.07);
+      border: 1px solid rgba(214, 70, 239, 0.28);
+      font-size: 19px;
+      text-align: center;
+      color: var(--accent);
+      text-shadow: 0 0 4px currentColor, 0 0 11px currentColor,
+                   0 0 19px rgba(214, 70, 239, 0.6);
+    }
+
+    /* the whole joke: the bar you are meant to be reading is the dim one */
+    .bar.reading {
+      opacity: 0.17;
+      color: #c9a6d8;
+      text-shadow: none;
+    }
+
+    .band-label {
+      position: absolute;
+      right: -232px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      letter-spacing: 2px;
+      color: var(--dim-ink);
+      text-align: left;
+      width: 200px;
+      line-height: 1.5;
+    }
+
+    .footer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 26px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 46px;
+      font-size: 13px;
+      letter-spacing: 1px;
+      color: var(--dim-ink);
+    }
+
+    .footer strong { color: var(--accent); font-weight: normal; }
+    .footer .right { text-align: right; line-height: 1.7; }
+
+    @media (max-width: 1340px) { #cover { --fit: 0.72; } }
+    @media (max-width: 940px)  { #cover { --fit: 0.5; } }
+  </style>
+</head>
+<body>
+  <div id="cover">
+    <p class="eyebrow">TinkerHub Useless Projects</p>
+
+    <h1 data-text="GLITCH TELEPROMPTER">GLITCH TELEPROMPTER</h1>
+
+    <p class="tagline">It prompts. It does not help.</p>
+
+    <div class="demo">
+      <div class="reading-band"></div>
+      <div class="bar">a line you do not need yet</div>
+      <div class="bar reading">the line you are trying to read</div>
+      <div class="bar">a line you already read</div>
+      <span class="band-label">the reading zone<br>is the dim one</span>
+    </div>
+
+    <div class="footer">
+      <span>Team <strong>Irrelevant</strong></span>
+      <span class="right">
+        Ann Mariya K Saju &middot; Aditya T R<br>
+        Sahrdaya College of Engineering and Technology, Kodakara
+      </span>
+    </div>
+  </div>
+</body>
+</html>
