@@ -61,8 +61,8 @@ For Software:
 
 # Installation
 ```bash
-git clone https://github.com/annmol-hq/princess_ennui_of_whynotia.git
-cd princess_ennui_of_whynotia
+git clone https://github.com/annmol-hq/Glitch_Teleprompter.git
+cd Glitch_Teleprompter
 
 # only needed if you want to run the test suite
 npm install
