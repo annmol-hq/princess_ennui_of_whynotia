@@ -10,7 +10,9 @@
 
   /* ---------- character scramble effect ---------- */
 
-  var SCRAMBLE_CHARS = '!<>-_\\/[]{}=+*^?#$%&@0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  /* Block-shade characters read as genuine corruption; an alphanumeric
+     set just looks like a password generator. */
+  var SCRAMBLE_CHARS = '▓▒░#%&?*';
 
   /* Pure frame renderer: given the target text and a 0..1 progress,
      return the partially-settled string. Characters lock in from the

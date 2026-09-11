@@ -26,16 +26,6 @@
 
   var FALLBACK_LINE_HEIGHT = 62;
 
-  var BETRAYAL_LINES = [
-    'stay calm',
-    'that was not you',
-    'keep reading',
-    'nobody noticed',
-    'it is fine',
-    'you are doing great',
-    'blame the hardware'
-  ];
-
   /* ---------- the inverted brightness rule ---------- */
 
   /* distance = |line centre - reading zone centre|, in pixels.
@@ -139,8 +129,7 @@
           effect: effect,
           visual: visual,
           duration: duration,
-          count: count,
-          line: BETRAYAL_LINES[Math.floor(random() * BETRAYAL_LINES.length)]
+          count: count
         });
       }
       if (opts.onCount) { opts.onCount(count); }
@@ -379,7 +368,6 @@
     MIN_BRIGHTNESS: MIN_BRIGHTNESS,
     MAX_BRIGHTNESS: MAX_BRIGHTNESS,
     GLITCH_EFFECTS: GLITCH_EFFECTS,
-    BETRAYAL_LINES: BETRAYAL_LINES,
     computeBrightness: computeBrightness,
     createGlitchEngine: createGlitchEngine,
     loadBetrayalCount: loadBetrayalCount,

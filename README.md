@@ -81,10 +81,14 @@ For Software:
 localStorage on every keystroke, so a refresh never loses your work.*
 
 ![Topic generator](screenshots/2-topic-rolled.jpg)
-*The random topic generator mid-use. A character-scramble effect cycles through random
-symbols before settling on a topic from a local 30-entry bank, then offers three formats.
-Everything is generated from local Mad-libs templates with no API call, so it works with
-zero internet all day at a booth.*
+*The random topic generator once it has settled. A topic is drawn from a local 30-entry
+bank, then three formats are offered. Everything is generated from local Mad-libs
+templates with no API call, so it works with zero internet all day at a booth.*
+
+![Scramble mid-flight](screenshots/7-scramble-mid-flight.png)
+*The same control caught mid-scramble. Characters lock in from the left while the rest
+churn through block-shade glyphs, so the topic resolves out of visible corruption rather
+than simply appearing.*
 
 ![The inverted brightness rule](screenshots/4-inverted-brightness.jpg)
 *The core mechanic, and the whole joke. The reading zone sits between the two faint
