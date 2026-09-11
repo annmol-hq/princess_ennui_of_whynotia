@@ -6,13 +6,12 @@
 
 
 ## Basic Details
-### Team Name: [FILL IN]
+### Team Name: Irrelevant
 
 
 ### Team Members
-- Team Lead: [FILL IN] - [College]
-- Member 2: [FILL IN] - [College]
-- Member 3: [FILL IN] - [College]
+- Team Lead: Ann Mariya K Saju - Sahrdaya College of Engineering and Technology, Kodakara
+- Member 2: Aditya T R - Sahrdaya College of Engineering and Technology, Kodakara
 
 ### Project Description
 A two-page web teleprompter that scrolls your script at a calm, steady reading pace
@@ -39,7 +38,9 @@ how many times it has betrayed you, and that number survives closing the browser
 For Software:
 - **Languages:** HTML5, CSS3, JavaScript (vanilla, ES5-style, no transpiler)
 - **Frameworks:** None. Deliberately zero framework and zero build step.
-- **Libraries:** jsdom (dev dependency, test harness only); Share Tech Mono via Google Fonts
+- **Libraries:** jsdom (dev dependency, test harness only). Share Tech Mono is embedded
+  directly in the stylesheet as a base64 woff2, so the pages make zero network requests
+  and run identically with the wifi switched off.
 - **Tools:** Node.js 24, npm, Git, Chrome DevTools
 
 For Hardware:
@@ -155,9 +156,8 @@ mutation-tested: flipping `computeBrightness` to the conventional orientation ma
 tests fail, which proves the test can actually detect the mistake.
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
-- [Name 3]: [Specific contributions]
+- Ann Mariya K Saju: [Specific contributions]
+- Aditya T R: [Specific contributions]
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
