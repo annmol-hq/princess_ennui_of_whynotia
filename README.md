@@ -16,12 +16,9 @@
 - Member 2: Aditya T R - Sahrdaya College of Engineering and Technology, Kodakara
 
 ### Project Description
-A teleprompter built to sabotage the person reading from it. The line you actually need is
-dimmed almost to nothing, while every line you do not need glows brightly and pulls your
-eye away. Every few seconds it interrupts itself at random: blacking the screen out,
-collapsing into television static, lurching forward, freezing, running backwards, or
-quietly changing a word in a sentence you have not reached yet. None of it responds to how
-well you are doing. It grades you at the end anyway.
+A teleprompter on nobody's side. The line you're reading is dimmed; the rest glow. It
+blacks out, dissolves into static, lurches, runs backwards and rewrites words at random -
+then grades you on the mess it made.
 
 ### The Problem (that doesn't exist)
 Teleprompters have made public speaking far too easy. Newsreaders simply *read the words*
@@ -81,7 +78,7 @@ open index.html             # macOS
 python -m http.server 8765
 # then visit http://127.0.0.1:8765/index.html
 
-# Run the test suite (23 jsdom tests)
+# Run the test suite (40 jsdom tests)
 npm test
 ```
 
@@ -142,13 +139,18 @@ flowchart TD
     D -->|appends| A
     A -->|PROCEED| E[prompter.html]
     B --> E
-    E --> F[3-2-1 countdown]
+    E --> F0[Fake calibration<br/>measures nothing]
+    F0 --> F[3-2-1 countdown]
     F --> G[Baseline scroll<br/>requestAnimationFrame<br/>constant 46 px/sec]
     G --> H[computeBrightness<br/>INVERTED: near zone = dim<br/>far from zone = bright]
-    I[Glitch engine<br/>random scheduler] -.->|multiplier only,<br/>never rewrites baseline| G
-    I --> J[speed / freeze / reverse<br/>static / blank]
+    I[Glitch engine<br/>weighted random scheduler] -.->|multiplier only,<br/>never rewrites baseline| G
+    I --> J[blank / static / speed<br/>freeze / reverse / swap / mirror]
+    I -->|on end| M[Shove reading line<br/>up and out of view]
+    G -->|reverse past start| N[Wrap: tail rolls<br/>in from the top]
     I -->|once per event| K[(localStorage<br/>prompter-betrayal-count)]
     K --> L[Persistent betrayal counter]
+    G -->|end of script| P[Report card<br/>grades the reader]
+    K --> P
 ```
 
 *Two independent systems drive the reading screen. The baseline scroll runs at a constant
@@ -169,9 +171,9 @@ at least two glitches.*
 
 # Additional Demos
 
-**Test suite.** `npm test` runs 23 jsdom tests covering persistence, the topic generator,
-all three format templates, navigation, the empty-script state, the betrayal counter, and
-the sabotage layer.
+**Test suite.** `npm test` runs 40 jsdom tests covering persistence, the topic generator,
+all three format templates, navigation, the empty-script state, the betrayal counter, the
+sabotage layer, the report card arithmetic, and the scroll wrap-around.
 
 The inverted brightness rule is the one thing most likely to get built backwards by
 accident, so it is asserted explicitly rather than eyeballed, and the assertion was
