@@ -164,10 +164,12 @@ For Hardware:
 
 ### Project Demo
 # Video
-[ADD YOUR DEMO VIDEO LINK HERE]
-*Suggested run of show: paste a script on the setup page, roll a random topic and generate
-a speech from it, hit PROCEED, then try to read the result aloud through the countdown and
-at least two glitches.*
+
+https://github.com/user-attachments/assets/1eb1da56-905c-4f68-8551-24037dedf5b7
+
+*A full run: pasting a script on the setup page, rolling a random topic and generating a
+speech from it, then pressing PROCEED and trying to read the result aloud through the fake
+calibration, the countdown, and the glitches that follow.*
 
 # Additional Demos
 
